@@ -1,1 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <title>Universe Smash</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- Main game container -->
+  <div id="game">
+
+    <!-- Three.js will render the universe here -->
+    <div id="gameCanvas"></div>
+
+    <!-- =========================
+         STARTUP / SPLASH SCREEN
+         ========================= -->
+    <section id="startupScreen" class="screen active">
+
+      <div id="studioSplash" class="startupPanel">
+        <div class="logoStar">✦</div>
+        <h1>UNIVERSE SMASH</h1>
+        <p>STUDIOS</p>
+      </div>
+
+      <div id="techSplash" class="startupPanel hidden">
+        <p class="smallTitle">POWERED BY</p>
+        <h1>JAVASCRIPT</h1>
+        <h1>THREE.JS</h1>
+        <h1>WEBGL</h1>
+      </div>
+
+      <div id="warningSplash" class="startupPanel hidden">
+        <h1>PHOTOSENSITIVITY NOTICE</h1>
+        <p>
+          Universe Smash contains bright lights,
+          flashing effects, and intense visual events.
+        </p>
+
+        <button id="warningContinueButton">
+          CONTINUE
+        </button>
+      </div>
+
+      <div id="loadingSplash" class="startupPanel hidden">
+        <h1>INITIALIZING UNIVERSE...</h1>
+
+        <div class="loadingItem">
+          <span>PLANETS</span>
+          <div class="progressBar">
+            <div id="planetProgress" class="progressFill"></div>
+          </div>
+        </div>
+
+        <div class="loadingItem">
+          <span>STARS</span>
+          <div class="progressBar">
+            <div id="starProgress" class="progressFill"></div>
+          </div>
+        </div>
+
+        <div class="loadingItem">
+          <span>PHYSICS</span>
+          <div class="progressBar">
+            <div id="physicsProgress" class="progressFill"></div>
+          </div>
+        </div>
+
+        <div class="loadingItem">
+          <span>EFFECTS</span>
+          <div class="progressBar">
+            <div id="effectsProgress" class="progressFill"></div>
+          </div>
+        </div>
+
+        <p id="loadingText">LOADING...</p>
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         TITLE SCREEN
+         ========================= -->
+    <section id="titleScreen" class="screen hidden">
+
+      <div class="titleContent">
+
+        <div class="titleStar">✦</div>
+
+        <h1 class="gameTitle">
+          UNIVERSE
+          <span>SMASH</span>
+        </h1>
+
+        <button id="pressStartButton">
+          ▶ PRESS START
+        </button>
+
+        <button id="titleSettingsButton" class="secondaryButton">
+          ⚙ SETTINGS
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         MAIN MENU
+         ========================= -->
+    <section id="mainMenu" class="screen hidden">
+
+      <div class="menuPanel">
+
+        <h1>UNIVERSE SMASH</h1>
+
+        <button id="planetModeButton" class="menuButton">
+          🪐
+          <span>
+            <strong>PLANET MODE</strong>
+            <small>Experiment with one world</small>
+          </span>
+        </button>
+
+        <button id="solarSystemButton" class="menuButton">
+          ☀️
+          <span>
+            <strong>SOLAR SYSTEM</strong>
+            <small>Build and simulate star systems</small>
+          </span>
+        </button>
+
+        <button id="settingsButton" class="menuButton">
+          ⚙️
+          <span>
+            <strong>SETTINGS</strong>
+            <small>Graphics and game options</small>
+          </span>
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         PLANET MODE
+         ========================= -->
+    <section id="planetModeScreen" class="gameScreen hidden">
+
+      <header class="topBar">
+        <button class="backButton" data-back="menu">
+          ← MENU
+        </button>
+
+        <h2>🪐 PLANET MODE</h2>
+
+        <div class="topStatus">
+          UNIVERSE SMASH
+        </div>
+      </header>
+
+
+      <!-- Left tool panel -->
+      <aside class="leftPanel">
+
+        <h3>SELECT TOOL</h3>
+
+        <button class="toolButton" data-tool="laser">
+          🔴 Laser
+        </button>
+
+        <button class="toolButton" data-tool="ice-laser">
+          ❄️ Ice Laser
+        </button>
+
+        <button class="toolButton" data-tool="heat-beam">
+          🔥 Heat Beam
+        </button>
+
+        <button class="toolButton" data-tool="meteor">
+          ☄️ Meteor
+        </button>
+
+        <button class="toolButton" data-tool="ufo">
+          👽 UFO
+        </button>
+
+        <button class="toolButton mysteryButton" data-tool="mystery-matter">
+          🔮 Mystery Matter Gun
+        </button>
+
+      </aside>
+
+
+      <!-- Planet rendering area -->
+      <main id="planetCanvas" class="simulationCanvas">
+
+        <div class="simulationLabel">
+          SELECT A PLANET TO BEGIN
+        </div>
+
+      </main>
+
+
+      <!-- Right information panel -->
+      <aside class="rightPanel">
+
+        <h3>PLANET INFO</h3>
+
+        <div class="infoRow">
+          <span>TYPE</span>
+          <strong id="planetType">NONE</strong>
+        </div>
+
+        <div class="infoRow">
+          <span>HEALTH</span>
+          <strong id="planetHealth">100%</strong>
+        </div>
+
+        <div class="healthBar">
+          <div id="healthFill"></div>
+        </div>
+
+        <hr>
+
+        <h3>MYSTERY EFFECT</h3>
+
+        <p id="mysteryEffectText">
+          No effect active
+        </p>
+
+      </aside>
+
+    </section>
+
+
+    <!-- =========================
+         SOLAR SYSTEM MODE
+         ========================= -->
+    <section id="solarSystemScreen" class="gameScreen hidden">
+
+      <header class="topBar">
+
+        <button class="backButton" data-back="menu">
+          ← MENU
+        </button>
+
+        <h2>☀️ SOLAR SYSTEM</h2>
+
+        <div class="topStatus">
+          SANDBOX MODE
+        </div>
+
+      </header>
+
+
+      <!-- Add object panel -->
+      <aside class="leftPanel">
+
+        <h3>ADD OBJECT</h3>
+
+        <button class="toolButton" data-object="star">
+          ⭐ Star
+        </button>
+
+        <button class="toolButton" data-object="planet">
+          🪐 Planet
+        </button>
+
+        <button class="toolButton" data-object="moon">
+          🌕 Moon
+        </button>
+
+        <button class="toolButton" data-object="asteroid">
+          ☄️ Asteroid
+        </button>
+
+        <button class="toolButton" data-object="black-hole">
+          🕳️ Black Hole
+        </button>
+
+        <button class="toolButton" data-object="wormhole">
+          🌀 Wormhole
+        </button>
+
+        <button class="toolButton" data-object="grey-hole">
+          🩶 Grey Hole
+        </button>
+
+        <button class="toolButton" data-object="antimatter-planet">
+          🟣 Antimatter Planet
+        </button>
+
+      </aside>
+
+
+      <!-- Solar system rendering area -->
+      <main id="solarSystemCanvas" class="simulationCanvas">
+
+        <div class="simulationLabel">
+          BUILD YOUR OWN UNIVERSE
+        </div>
+
+      </main>
+
+
+      <!-- System information -->
+      <aside class="rightPanel">
+
+        <h3>SYSTEM INFO</h3>
+
+        <div class="infoRow">
+          <span>OBJECTS</span>
+          <strong id="objectCount">0</strong>
+        </div>
+
+        <div class="infoRow">
+          <span>SIMULATION</span>
+          <strong id="simulationStatus">READY</strong>
+        </div>
+
+        <hr>
+
+        <h3>CAMERA</h3>
+
+        <button id="zoomInButton" class="cameraButton">
+          ➕ ZOOM IN
+        </button>
+
+        <button id="zoomOutButton" class="cameraButton">
+          ➖ ZOOM OUT
+        </button>
+
+        <button id="systemViewButton" class="cameraButton">
+          🎯 SYSTEM VIEW
+        </button>
+
+      </aside>
+
+    </section>
+
+
+    <!-- =========================
+         SETTINGS
+         ========================= -->
+    <section id="settingsScreen" class="screen hidden">
+
+      <div class="settingsPanel">
+
+        <button class="backButton" data-back="menu">
+          ← BACK
+        </button>
+
+        <h1>SETTINGS</h1>
+
+        <label>
+          Graphics Quality
+          <select id="graphicsQuality">
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+            <option>Ultra</option>
+          </select>
+        </label>
+
+        <label>
+          Effects
+          <select id="effectsQuality">
+            <option>Low</option>
+            <option selected>High</option>
+          </select>
+        </label>
+
+        <label>
+          Music Volume
+          <input id="musicVolume" type="range"
+                 min="0" max="100" value="50">
+        </label>
+
+        <label>
+          Sound Effects
+          <input id="soundVolume" type="range"
+                 min="0" max="100" value="70">
+        </label>
+
+      </div>
+
+    </section>
+
+  </div>
+
+
+  <!-- =========================
+       JAVASCRIPT MODULES
+       ========================= -->
+
+  <script type="module" src="./src/main.js"></script>
+
+</body>
+</html>
