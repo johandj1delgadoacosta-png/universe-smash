@@ -1,692 +1,1054 @@
-// src/physics.js
+// Universe Smash
+// Physics Engine
 
 const G = 0.00045;
-const MIN_DISTANCE = 18;
-const MAX_ACCELERATION = 0.08;
-const MAX_SPEED = 12;
-const SOFTENING = 120;
+const SOFTENING = 80;
+const MAX_SPEED = 5000;
+const MIN_DISTANCE = 8;
 
-function getMass(body) {
-    if (!body) return 1;
+const collisionCooldowns = new WeakMap();
+
+function numberOr(value, fallback = 0) {
+    return Number.isFinite(Number(value))
+        ? Number(value)
+        : fallback;
+}
+
+function distanceBetween(a, b) {
+    if (!a || !b) {
+        return Infinity;
+    }
+
+    const dx =
+        numberOr(b.x) -
+        numberOr(a.x);
+
+    const dy =
+        numberOr(b.y) -
+        numberOr(a.y);
+
+    return Math.hypot(dx, dy);
+}
+
+function getBodyRadius(body) {
+    if (!body) {
+        return 0;
+    }
+
+    if (Number.isFinite(body.radius)) {
+        return Math.max(0, body.radius);
+    }
+
+    return 0;
+}
+
+function getBodyMass(body) {
+    if (!body) {
+        return 0;
+    }
+
+    if (Number.isFinite(body.physicsMass)) {
+        return Math.max(0, body.physicsMass);
+    }
 
     if (Number.isFinite(body.mass)) {
-        return Math.max(0.01, body.mass);
+        return Math.max(0, body.mass);
     }
 
     switch (body.type) {
-        case "black-hole":
-            return 100000;
-        case "grey-hole":
-            return 50000;
         case "star":
-            return 5000;
+            return 1000000;
+
+        case "blueHypergiant":
         case "blue-hypergiant":
-            return 15000;
+            return 8000000;
+
         case "contact-binary":
-            return 10000;
+            return 3000000;
+
+        case "black-hole":
+            return 10000000;
+
+        case "grey-hole":
+            return 3500000;
+
         case "planet":
-            return 100;
-        case "antimatter-planet":
-            return 100;
+            return 1000;
+
         case "moon":
-            return 10;
+            return 120;
+
         case "asteroid":
-            return 1;
+            return 10;
+
+        case "antimatter-planet":
+            return 1000;
+
         default:
             return 1;
     }
 }
 
-function getRadius(body) {
-    if (!body) return 10;
-
-    if (Number.isFinite(body.radius)) {
-        return Math.max(1, body.radius);
-    }
-
-    return 10;
+function isBodyStatic(body) {
+    return Boolean(
+        body &&
+        (
+            body.static === true ||
+            body.isStatic === true ||
+            body.type === "black-hole"
+        )
+    );
 }
 
 function ensureVelocity(body) {
-    if (!body.velocity) {
-        body.velocity = {
-            x: 0,
-            y: 0
-        };
-    }
-
-    if (!Number.isFinite(body.velocity.x)) {
-        body.velocity.x = 0;
-    }
-
-    if (!Number.isFinite(body.velocity.y)) {
-        body.velocity.y = 0;
-    }
-}
-
-function ensurePosition(body) {
-    if (!Number.isFinite(body.x)) body.x = 0;
-    if (!Number.isFinite(body.y)) body.y = 0;
-}
-
-function limitVector(vector, maxLength) {
-    const length = Math.sqrt(
-        vector.x * vector.x +
-        vector.y * vector.y
-    );
-
-    if (length > maxLength && length > 0) {
-        vector.x = (vector.x / length) * maxLength;
-        vector.y = (vector.y / length) * maxLength;
-    }
-}
-
-function isStatic(body) {
-    return (
-        body.static === true ||
-        body.isStatic === true ||
-        body.type === "black-hole"
-    );
-}
-
-function calculateGravity(bodyA, bodyB) {
-    const dx = bodyB.x - bodyA.x;
-    const dy = bodyB.y - bodyA.y;
-
-    const distanceSquared =
-        dx * dx +
-        dy * dy +
-        SOFTENING;
-
-    const distance = Math.sqrt(distanceSquared);
-
-    if (distance < 0.0001) {
-        return {
-            x: 0,
-            y: 0
-        };
-    }
-
-    const massB = getMass(bodyB);
-
-    let acceleration =
-        (G * massB) /
-        distanceSquared;
-
-    if (acceleration > MAX_ACCELERATION) {
-        acceleration = MAX_ACCELERATION;
-    }
-
-    return {
-        x: (dx / distance) * acceleration,
-        y: (dy / distance) * acceleration
-    };
-}
-
-function applyGravity(objects, deltaTime) {
-    for (let i = 0; i < objects.length; i++) {
-        const body = objects[i];
-
-        if (!body || body.destroyed) continue;
-
-        ensurePosition(body);
-        ensureVelocity(body);
-
-        if (isStatic(body)) continue;
-
-        let accelerationX = 0;
-        let accelerationY = 0;
-
-        for (let j = 0; j < objects.length; j++) {
-            if (i === j) continue;
-
-            const other = objects[j];
-
-            if (!other || other.destroyed) continue;
-
-            ensurePosition(other);
-
-            const gravity = calculateGravity(body, other);
-
-            accelerationX += gravity.x;
-            accelerationY += gravity.y;
-        }
-
-        const accelerationLength = Math.sqrt(
-            accelerationX * accelerationX +
-            accelerationY * accelerationY
-        );
-
-        if (accelerationLength > MAX_ACCELERATION) {
-            accelerationX =
-                (accelerationX / accelerationLength) *
-                MAX_ACCELERATION;
-
-            accelerationY =
-                (accelerationY / accelerationLength) *
-                MAX_ACCELERATION;
-        }
-
-        body.velocity.x +=
-            accelerationX * deltaTime;
-
-        body.velocity.y +=
-            accelerationY * deltaTime;
-
-        limitVector(body.velocity, MAX_SPEED);
-    }
-}
-
-function updatePositions(objects, deltaTime) {
-    for (const body of objects) {
-        if (!body || body.destroyed) continue;
-
-        ensurePosition(body);
-        ensureVelocity(body);
-
-        if (isStatic(body)) continue;
-
-        body.x += body.velocity.x * deltaTime;
-        body.y += body.velocity.y * deltaTime;
-
-        if (Number.isFinite(body.rotationSpeed)) {
-            body.rotation =
-                (body.rotation || 0) +
-                body.rotationSpeed * deltaTime;
-        }
-    }
-}
-
-function handleCollisions(objects) {
-    for (let i = 0; i < objects.length; i++) {
-        const a = objects[i];
-
-        if (!a || a.destroyed) continue;
-
-        for (let j = i + 1; j < objects.length; j++) {
-            const b = objects[j];
-
-            if (!b || b.destroyed) continue;
-
-            const dx = b.x - a.x;
-            const dy = b.y - a.y;
-
-            const distance = Math.sqrt(
-                dx * dx +
-                dy * dy
-            );
-
-            const minimumDistance =
-                getRadius(a) +
-                getRadius(b);
-
-            if (
-                distance <= minimumDistance &&
-                distance > 0.001
-            ) {
-                resolveCollision(a, b, dx, dy, distance);
-            }
-        }
-    }
-}
-
-function resolveCollision(a, b, dx, dy, distance) {
-    const massA = getMass(a);
-    const massB = getMass(b);
-
-    const normalX = dx / distance;
-    const normalY = dy / distance;
-
-    ensureVelocity(a);
-    ensureVelocity(b);
-
-    const relativeVelocityX =
-        b.velocity.x - a.velocity.x;
-
-    const relativeVelocityY =
-        b.velocity.y - a.velocity.y;
-
-    const velocityAlongNormal =
-        relativeVelocityX * normalX +
-        relativeVelocityY * normalY;
-
-    if (velocityAlongNormal > 0) {
+    if (!body) {
         return;
     }
 
-    const restitution = 0.65;
-
-    const impulse =
-        -(1 + restitution) *
-        velocityAlongNormal /
-        (1 / massA + 1 / massB);
-
-    const impulseX = impulse * normalX;
-    const impulseY = impulse * normalY;
-
-    if (!isStatic(a)) {
-        a.velocity.x -=
-            (impulseX / massA);
-
-        a.velocity.y -=
-            (impulseY / massA);
+    if (!Number.isFinite(body.vx)) {
+        body.vx = 0;
     }
 
-    if (!isStatic(b)) {
-        b.velocity.x +=
-            (impulseX / massB);
-
-        b.velocity.y +=
-            (impulseY / massB);
-    }
-
-    separateBodies(a, b, normalX, normalY, distance);
-}
-
-function separateBodies(a, b, normalX, normalY, distance) {
-    const overlap =
-        getRadius(a) +
-        getRadius(b) -
-        distance;
-
-    if (overlap <= 0) return;
-
-    const moveAmount = overlap * 0.5;
-
-    if (!isStatic(a)) {
-        a.x -= normalX * moveAmount;
-        a.y -= normalY * moveAmount;
-    }
-
-    if (!isStatic(b)) {
-        b.x += normalX * moveAmount;
-        b.y += normalY * moveAmount;
+    if (!Number.isFinite(body.vy)) {
+        body.vy = 0;
     }
 }
 
-function applyBlackHoleEffects(objects) {
-    const blackHoles = objects.filter(
-        body =>
-            body &&
-            !body.destroyed &&
-            body.type === "black-hole"
-    );
-
-    for (const hole of blackHoles) {
-        const influenceRadius =
-            Math.max(
-                350,
-                getRadius(hole) * 15
-            );
-
-        for (const body of objects) {
-            if (
-                !body ||
-                body === hole ||
-                body.destroyed
-            ) {
-                continue;
-            }
-
-            const dx = hole.x - body.x;
-            const dy = hole.y - body.y;
-
-            const distance = Math.sqrt(
-                dx * dx +
-                dy * dy
-            );
-
-            if (
-                distance <= 0 ||
-                distance > influenceRadius
-            ) {
-                continue;
-            }
-
-            const strength =
-                0.0008 *
-                (1 -
-                    distance /
-                    influenceRadius);
-
-            if (!body.velocity) {
-                ensureVelocity(body);
-            }
-
-            body.velocity.x +=
-                (dx / distance) *
-                strength;
-
-            body.velocity.y +=
-                (dy / distance) *
-                strength;
-
-            if (
-                distance <
-                getRadius(hole) * 1.2
-            ) {
-                if (
-                    body.type !== "black-hole" &&
-                    body.type !== "grey-hole"
-                ) {
-                    body.destroyed = true;
-
-                    hole.mass =
-                        getMass(hole) +
-                        getMass(body) * 0.05;
-                }
-            }
-        }
-    }
-}
-
-function applyGreyHoleEffects(objects) {
-    const greyHoles = objects.filter(
-        body =>
-            body &&
-            !body.destroyed &&
-            body.type === "grey-hole"
-    );
-
-    for (const hole of greyHoles) {
-        const influenceRadius =
-            Math.max(
-                280,
-                getRadius(hole) * 12
-            );
-
-        for (const body of objects) {
-            if (
-                !body ||
-                body === hole ||
-                body.destroyed
-            ) {
-                continue;
-            }
-
-            const dx = hole.x - body.x;
-            const dy = hole.y - body.y;
-
-            const distance = Math.sqrt(
-                dx * dx +
-                dy * dy
-            );
-
-            if (
-                distance <= 0 ||
-                distance > influenceRadius
-            ) {
-                continue;
-            }
-
-            const strength =
-                0.00035 *
-                (1 -
-                    distance /
-                    influenceRadius);
-
-            if (!body.velocity) {
-                ensureVelocity(body);
-            }
-
-            body.velocity.x +=
-                (dx / distance) *
-                strength;
-
-            body.velocity.y +=
-                (dy / distance) *
-                strength;
-
-            if (
-                distance <
-                getRadius(hole) * 1.05
-            ) {
-                body.velocity.x *= 0.7;
-                body.velocity.y *= 0.7;
-            }
-        }
-    }
-}
-
-function applyWormholeEffects(objects) {
-    const wormholes = objects.filter(
-        body =>
-            body &&
-            !body.destroyed &&
-            body.type === "wormhole"
-    );
-
-    if (wormholes.length < 2) return;
-
-    for (let i = 0; i < wormholes.length; i++) {
-        const entrance = wormholes[i];
-
-        if (!entrance.linkedTo) continue;
-
-        const exit = entrance.linkedTo;
-
-        for (const body of objects) {
-            if (
-                !body ||
-                body === entrance ||
-                body === exit ||
-                body.destroyed
-            ) {
-                continue;
-            }
-
-            const dx = body.x - entrance.x;
-            const dy = body.y - entrance.y;
-
-            const distance = Math.sqrt(
-                dx * dx +
-                dy * dy
-            );
-
-            const triggerDistance =
-                Math.max(
-                    20,
-                    getRadius(entrance) * 1.5
-                );
-
-            if (
-                distance < triggerDistance &&
-                !body.wormholeCooldown
-            ) {
-                body.x =
-                    exit.x +
-                    (Math.random() - 0.5) * 20;
-
-                body.y =
-                    exit.y +
-                    (Math.random() - 0.5) * 20;
-
-                body.wormholeCooldown = 20;
-            }
-        }
-    }
-}
-
-function updateCooldowns(objects) {
-    for (const body of objects) {
-        if (!body) continue;
-
-        if (body.wormholeCooldown > 0) {
-            body.wormholeCooldown--;
-        }
-    }
-}
-
-function cleanObjects(objects) {
-    return objects.filter(
-        body =>
-            body &&
-            !body.destroyed &&
-            Number.isFinite(body.x) &&
-            Number.isFinite(body.y)
-    );
-}
-
-export function updatePhysics(objects, deltaTime = 1) {
-    if (!Array.isArray(objects)) {
+function limitVelocity(body) {
+    if (!body) {
         return;
     }
 
-    if (!Number.isFinite(deltaTime)) {
-        deltaTime = 1;
-    }
-
-    deltaTime = Math.max(
-        0.05,
-        Math.min(deltaTime, 2)
-    );
-
-    applyGravity(objects, deltaTime);
-
-    applyBlackHoleEffects(objects);
-
-    applyGreyHoleEffects(objects);
-
-    applyWormholeEffects(objects);
-
-    updatePositions(objects, deltaTime);
-
-    handleCollisions(objects);
-
-    updateCooldowns(objects);
-
-    const cleaned =
-        cleanObjects(objects);
-
-    objects.length = 0;
-
-    for (const body of cleaned) {
-        objects.push(body);
-    }
-}
-
-export function addOrbitalVelocity(
-    body,
-    center,
-    speedMultiplier = 1
-) {
-    if (!body || !center) return;
-
-    ensurePosition(body);
-    ensurePosition(center);
     ensureVelocity(body);
 
-    const dx = body.x - center.x;
-    const dy = body.y - center.y;
+    const speed =
+        Math.hypot(
+            body.vx,
+            body.vy
+        );
 
-    const distance = Math.sqrt(
+    if (
+        speed <= MAX_SPEED ||
+        speed === 0
+    ) {
+        return;
+    }
+
+    const scale =
+        MAX_SPEED / speed;
+
+    body.vx *= scale;
+    body.vy *= scale;
+}
+
+function getPairKey(a, b) {
+    if (!a || !b) {
+        return null;
+    }
+
+    if (!a.__physicsId) {
+        a.__physicsId =
+            Math.random()
+                .toString(36)
+                .slice(2);
+    }
+
+    if (!b.__physicsId) {
+        b.__physicsId =
+            Math.random()
+                .toString(36)
+                .slice(2);
+    }
+
+    return a.__physicsId < b.__physicsId
+        ? `${a.__physicsId}:${b.__physicsId}`
+        : `${b.__physicsId}:${a.__physicsId}`;
+}
+
+function canCollide(a, b) {
+    if (!a || !b || a === b) {
+        return false;
+    }
+
+    if (
+        a.destroyed ||
+        b.destroyed ||
+        a.removed ||
+        b.removed
+    ) {
+        return false;
+    }
+
+    const radiusA =
+        getBodyRadius(a);
+
+    const radiusB =
+        getBodyRadius(b);
+
+    if (
+        radiusA <= 0 ||
+        radiusB <= 0
+    ) {
+        return false;
+    }
+
+    const distance =
+        distanceBetween(a, b);
+
+    return (
+        distance <=
+        radiusA + radiusB
+    );
+}
+
+function applyGravityBetween(
+    a,
+    b,
+    deltaTime
+) {
+    if (!a || !b) {
+        return;
+    }
+
+    if (
+        isBodyStatic(a) &&
+        isBodyStatic(b)
+    ) {
+        return;
+    }
+
+    const dx =
+        numberOr(b.x) -
+        numberOr(a.x);
+
+    const dy =
+        numberOr(b.y) -
+        numberOr(a.y);
+
+    let distanceSquared =
         dx * dx +
-        dy * dy
+        dy * dy;
+
+    if (
+        !Number.isFinite(distanceSquared)
+    ) {
+        return;
+    }
+
+    distanceSquared =
+        Math.max(
+            distanceSquared,
+            SOFTENING
+        );
+
+    const distance =
+        Math.sqrt(
+            distanceSquared
+        );
+
+    if (distance < 0.0001) {
+        return;
+    }
+
+    const massA =
+        getBodyMass(a);
+
+    const massB =
+        getBodyMass(b);
+
+    if (
+        massA <= 0 ||
+        massB <= 0
+    ) {
+        return;
+    }
+
+    const force =
+        G *
+        massA *
+        massB /
+        distanceSquared;
+
+    const nx =
+        dx / distance;
+
+    const ny =
+        dy / distance;
+
+    const timeScale =
+        Math.max(
+            0,
+            numberOr(deltaTime, 16.67)
+        ) / 16.67;
+
+    if (!isBodyStatic(a)) {
+        a.vx +=
+            nx *
+            force /
+            massA *
+            timeScale;
+
+        a.vy +=
+            ny *
+            force /
+            massA *
+            timeScale;
+    }
+
+    if (!isBodyStatic(b)) {
+        b.vx -=
+            nx *
+            force /
+            massB *
+            timeScale;
+
+        b.vy -=
+            ny *
+            force /
+            massB *
+            timeScale;
+    }
+}
+
+function applyBlackHoleEffect(
+    body,
+    blackHole,
+    deltaTime
+) {
+    if (
+        !body ||
+        !blackHole ||
+        body === blackHole
+    ) {
+        return;
+    }
+
+    const dx =
+        blackHole.x -
+        body.x;
+
+    const dy =
+        blackHole.y -
+        body.y;
+
+    const distance =
+        Math.hypot(dx, dy);
+
+    if (
+        !Number.isFinite(distance) ||
+        distance <= 0
+    ) {
+        return;
+    }
+
+    const influence =
+        numberOr(
+            blackHole.influenceRadius,
+            Math.max(
+                800,
+                getBodyRadius(blackHole) * 30
+            )
+        );
+
+    if (distance > influence) {
+        return;
+    }
+
+    const mass =
+        getBodyMass(
+            blackHole
+        );
+
+    const strength =
+        Math.min(
+            0.75,
+            G *
+            mass /
+            Math.max(
+                distance * distance,
+                MIN_DISTANCE
+            )
+        );
+
+    const timeScale =
+        Math.max(
+            0,
+            numberOr(deltaTime, 16.67)
+        ) / 16.67;
+
+    body.vx +=
+        dx / distance *
+        strength *
+        timeScale;
+
+    body.vy +=
+        dy / distance *
+        strength *
+        timeScale;
+
+    if (
+        distance <
+        getBodyRadius(blackHole) * 1.5
+    ) {
+        body.blackHoleCapture = true;
+    }
+}
+
+function applyGreyHoleEffect(
+    body,
+    greyHole,
+    deltaTime
+) {
+    if (
+        !body ||
+        !greyHole ||
+        body === greyHole
+    ) {
+        return;
+    }
+
+    const dx =
+        greyHole.x -
+        body.x;
+
+    const dy =
+        greyHole.y -
+        body.y;
+
+    const distance =
+        Math.hypot(dx, dy);
+
+    if (
+        !Number.isFinite(distance) ||
+        distance <= 0
+    ) {
+        return;
+    }
+
+    const influence =
+        numberOr(
+            greyHole.influenceRadius,
+            Math.max(
+                600,
+                getBodyRadius(greyHole) * 25
+            )
+        );
+
+    if (distance > influence) {
+        return;
+    }
+
+    const mass =
+        getBodyMass(
+            greyHole
+        );
+
+    const strength =
+        Math.min(
+            0.35,
+            G *
+            mass /
+            Math.max(
+                distance * distance,
+                MIN_DISTANCE
+            )
+        );
+
+    const timeScale =
+        Math.max(
+            0,
+            numberOr(deltaTime, 16.67)
+        ) / 16.67;
+
+    body.vx +=
+        dx / distance *
+        strength *
+        timeScale;
+
+    body.vy +=
+        dy / distance *
+        strength *
+        timeScale;
+}
+
+function separateBodies(a, b) {
+    const dx =
+        numberOr(b.x) -
+        numberOr(a.x);
+
+    const dy =
+        numberOr(b.y) -
+        numberOr(a.y);
+
+    let distance =
+        Math.hypot(dx, dy);
+
+    if (
+        distance < 0.0001
+    ) {
+        distance = 0.0001;
+    }
+
+    const radiusA =
+        getBodyRadius(a);
+
+    const radiusB =
+        getBodyRadius(b);
+
+    const overlap =
+        radiusA +
+        radiusB -
+        distance;
+
+    if (overlap <= 0) {
+        return;
+    }
+
+    const nx =
+        dx / distance;
+
+    const ny =
+        dy / distance;
+
+    const staticA =
+        isBodyStatic(a);
+
+    const staticB =
+        isBodyStatic(b);
+
+    if (
+        staticA &&
+        staticB
+    ) {
+        return;
+    }
+
+    if (staticA) {
+        b.x +=
+            nx *
+            overlap;
+
+        b.y +=
+            ny *
+            overlap;
+
+        return;
+    }
+
+    if (staticB) {
+        a.x -=
+            nx *
+            overlap;
+
+        a.y -=
+            ny *
+            overlap;
+
+        return;
+    }
+
+    const massA =
+        Math.max(
+            0.001,
+            getBodyMass(a)
+        );
+
+    const massB =
+        Math.max(
+            0.001,
+            getBodyMass(b)
+        );
+
+    const totalMass =
+        massA + massB;
+
+    const moveA =
+        overlap *
+        (massB / totalMass);
+
+    const moveB =
+        overlap *
+        (massA / totalMass);
+
+    a.x -=
+        nx *
+        moveA;
+
+    a.y -=
+        ny *
+        moveA;
+
+    b.x +=
+        nx *
+        moveB;
+
+    b.y +=
+        ny *
+        moveB;
+}
+
+function resolveCollision(a, b) {
+    if (!canCollide(a, b)) {
+        return;
+    }
+
+    const key =
+        getPairKey(a, b);
+
+    if (!key) {
+        return;
+    }
+
+    const now =
+        performance.now();
+
+    const last =
+        collisionCooldowns.get(key) || 0;
+
+    if (
+        now - last <
+        150
+    ) {
+        return;
+    }
+
+    collisionCooldowns.set(
+        key,
+        now
     );
 
-    if (distance < 1) return;
+    separateBodies(a, b);
+
+    const dx =
+        numberOr(b.x) -
+        numberOr(a.x);
+
+    const dy =
+        numberOr(b.y) -
+        numberOr(a.y);
+
+    const distance =
+        Math.max(
+            0.0001,
+            Math.hypot(dx, dy)
+        );
+
+    const nx =
+        dx / distance;
+
+    const ny =
+        dy / distance;
+
+    const relativeVX =
+        numberOr(b.vx) -
+        numberOr(a.vx);
+
+    const relativeVY =
+        numberOr(b.vy) -
+        numberOr(a.vy);
+
+    const velocityAlongNormal =
+        relativeVX * nx +
+        relativeVY * ny;
+
+    if (
+        velocityAlongNormal > 0
+    ) {
+        return;
+    }
+
+    const restitution =
+        0.65;
+
+    const massA =
+        Math.max(
+            0.001,
+            getBodyMass(a)
+        );
+
+    const massB =
+        Math.max(
+            0.001,
+            getBodyMass(b)
+        );
+
+    const impulse =
+        -(
+            1 + restitution
+        ) *
+        velocityAlongNormal /
+        (
+            1 / massA +
+            1 / massB
+        );
+
+    const impulseX =
+        impulse * nx;
+
+    const impulseY =
+        impulse * ny;
+
+    if (!isBodyStatic(a)) {
+        a.vx -=
+            impulseX /
+            massA;
+
+        a.vy -=
+            impulseY /
+            massA;
+    }
+
+    if (!isBodyStatic(b)) {
+        b.vx +=
+            impulseX /
+            massB;
+
+        b.vy +=
+            impulseY /
+            massB;
+    }
+
+    a.lastCollision = b;
+    b.lastCollision = a;
+}
+
+function updatePositions(
+    bodies,
+    deltaTime
+) {
+    const timeScale =
+        Math.max(
+            0,
+            numberOr(deltaTime, 16.67)
+        ) / 16.67;
+
+    for (const body of bodies) {
+        if (
+            !body ||
+            body.destroyed ||
+            body.removed ||
+            isBodyStatic(body)
+        ) {
+            continue;
+        }
+
+        ensureVelocity(body);
+
+        body.x +=
+            body.vx *
+            timeScale;
+
+        body.y +=
+            body.vy *
+            timeScale;
+
+        limitVelocity(body);
+    }
+}
+
+function cleanupPhysicsState(
+    bodies
+) {
+    const validIds =
+        new Set();
+
+    for (const body of bodies) {
+        if (
+            body &&
+            body.__physicsId
+        ) {
+            validIds.add(
+                body.__physicsId
+            );
+        }
+    }
+
+    for (
+        const [key] of
+        collisionCooldowns
+    ) {
+        const parts =
+            key.split(":");
+
+        if (
+            !validIds.has(parts[0]) ||
+            !validIds.has(parts[1])
+        ) {
+            collisionCooldowns.delete(
+                key
+            );
+        }
+    }
+}
+
+function updatePhysics(
+    bodies = [],
+    deltaTime = 16.67
+) {
+    if (!Array.isArray(bodies)) {
+        return bodies;
+    }
+
+    const activeBodies =
+        bodies.filter(
+            body =>
+                body &&
+                !body.destroyed &&
+                !body.removed
+        );
+
+    // Make sure every body has velocity.
+    for (const body of activeBodies) {
+        ensureVelocity(body);
+    }
+
+    // Gravity between all bodies.
+    for (
+        let i = 0;
+        i < activeBodies.length;
+        i++
+    ) {
+        for (
+            let j = i + 1;
+            j < activeBodies.length;
+            j++
+        ) {
+            applyGravityBetween(
+                activeBodies[i],
+                activeBodies[j],
+                deltaTime
+            );
+        }
+    }
+
+    // Special gravitational objects.
+    for (const body of activeBodies) {
+        if (
+            body.type === "black-hole"
+        ) {
+            for (
+                const other of activeBodies
+            ) {
+                applyBlackHoleEffect(
+                    other,
+                    body,
+                    deltaTime
+                );
+            }
+        }
+
+        if (
+            body.type === "grey-hole"
+        ) {
+            for (
+                const other of activeBodies
+            ) {
+                applyGreyHoleEffect(
+                    other,
+                    body,
+                    deltaTime
+                );
+            }
+        }
+    }
+
+    // Move bodies.
+    updatePositions(
+        activeBodies,
+        deltaTime
+    );
+
+    // Collision handling.
+    for (
+        let i = 0;
+        i < activeBodies.length;
+        i++
+    ) {
+        for (
+            let j = i + 1;
+            j < activeBodies.length;
+            j++
+        ) {
+            resolveCollision(
+                activeBodies[i],
+                activeBodies[j]
+            );
+        }
+    }
+
+    cleanupPhysicsState(
+        activeBodies
+    );
+
+    return bodies;
+}
+
+function addOrbitalVelocity(
+    body,
+    centerBody,
+    clockwise = false
+) {
+    if (
+        !body ||
+        !centerBody ||
+        body === centerBody
+    ) {
+        return body;
+    }
+
+    ensureVelocity(body);
+
+    const dx =
+        body.x -
+        centerBody.x;
+
+    const dy =
+        body.y -
+        centerBody.y;
+
+    const distance =
+        Math.max(
+            MIN_DISTANCE,
+            Math.hypot(dx, dy)
+        );
 
     const centerMass =
-        getMass(center);
+        getBodyMass(
+            centerBody
+        );
 
     const orbitalSpeed =
         Math.sqrt(
-            (G * centerMass) /
-            Math.max(distance, MIN_DISTANCE)
-        ) *
-        12 *
-        speedMultiplier;
+            Math.max(
+                0,
+                G *
+                centerMass /
+                distance
+            )
+        );
 
-    const tangentX =
-        -dy / distance;
-
-    const tangentY =
+    const nx =
         dx / distance;
 
-    body.velocity.x +=
-        tangentX * orbitalSpeed;
+    const ny =
+        dy / distance;
 
-    body.velocity.y +=
-        tangentY * orbitalSpeed;
+    if (clockwise) {
+        body.vx +=
+            ny *
+            orbitalSpeed;
 
-    limitVector(
-        body.velocity,
-        MAX_SPEED
-    );
-}
+        body.vy -=
+            nx *
+            orbitalSpeed;
+    } else {
+        body.vx -=
+            ny *
+            orbitalSpeed;
 
-export function applyImpulse(
-    body,
-    x,
-    y
-) {
-    if (!body) return;
-
-    ensureVelocity(body);
-
-    body.velocity.x += x;
-    body.velocity.y += y;
-
-    limitVector(
-        body.velocity,
-        MAX_SPEED
-    );
-}
-
-export function setVelocity(
-    body,
-    x,
-    y
-) {
-    if (!body) return;
-
-    ensureVelocity(body);
-
-    body.velocity.x = x;
-    body.velocity.y = y;
-
-    limitVector(
-        body.velocity,
-        MAX_SPEED
-    );
-}
-
-export function distanceBetween(a, b) {
-    if (!a || !b) return Infinity;
-
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-
-    return Math.sqrt(
-        dx * dx +
-        dy * dy
-    );
-}
-
-export function getBodyMass(body) {
-    return getMass(body);
-}
-
-export function getBodyRadius(body) {
-    return getRadius(body);
-}
-
-export function isBodyStatic(body) {
-    return isStatic(body);
-}
-
-export function resetPhysics(objects) {
-    if (!Array.isArray(objects)) return;
-
-    for (const body of objects) {
-        if (!body) continue;
-
-        ensurePosition(body);
-        ensureVelocity(body);
-
-        body.velocity.x = 0;
-        body.velocity.y = 0;
-
-        body.wormholeCooldown = 0;
+        body.vy +=
+            nx *
+            orbitalSpeed;
     }
+
+    return body;
 }
+
+function applyImpulse(
+    body,
+    impulseX = 0,
+    impulseY = 0
+) {
+    if (
+        !body ||
+        isBodyStatic(body)
+    ) {
+        return body;
+    }
+
+    const mass =
+        Math.max(
+            0.001,
+            getBodyMass(body)
+        );
+
+    ensureVelocity(body);
+
+    body.vx +=
+        numberOr(impulseX) /
+        mass;
+
+    body.vy +=
+        numberOr(impulseY) /
+        mass;
+
+    limitVelocity(body);
+
+    return body;
+}
+
+function setVelocity(
+    body,
+    vx = 0,
+    vy = 0
+) {
+    if (!body) {
+        return body;
+    }
+
+    body.vx =
+        numberOr(vx);
+
+    body.vy =
+        numberOr(vy);
+
+    limitVelocity(body);
+
+    return body;
+}
+
+function resetPhysics(
+    bodies = []
+) {
+    if (!Array.isArray(bodies)) {
+        return;
+    }
+
+    for (const body of bodies) {
+        if (!body) {
+            continue;
+        }
+
+        body.vx = 0;
+        body.vy = 0;
+
+        delete body.lastCollision;
+        delete body.blackHoleCapture;
+    }
+
+    collisionCooldowns.clear();
+}
+
+export {
+    updatePhysics,
+    addOrbitalVelocity,
+    applyImpulse,
+    setVelocity,
+    distanceBetween,
+    getBodyMass,
+    getBodyRadius,
+    isBodyStatic,
+    resetPhysics
+};
+
+window.UniverseSmashPhysics = {
+    updatePhysics,
+    addOrbitalVelocity,
+    applyImpulse,
+    setVelocity,
+    distanceBetween,
+    getBodyMass,
+    getBodyRadius,
+    isBodyStatic,
+    resetPhysics
+};
