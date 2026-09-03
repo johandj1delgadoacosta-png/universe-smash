@@ -1,100 +1,148 @@
-// Universe Smash
-// Audio System
+// Universe Smash - Audio System
+// Safe Web Audio system with user-gesture activation
 
 let audioContext = null;
 let masterGain = null;
 let audioEnabled = true;
-let masterVolume = 0.7;
+let masterVolume = 0.45;
+let initialized = false;
+let userGestureReceived = false;
 
-const activeSources = new Set();
+// --------------------------------------------------
+// AUDIO INITIALIZATION
+// --------------------------------------------------
 
 function createAudioContext() {
     if (audioContext) {
         return audioContext;
     }
 
-    const AudioContextClass =
-        window.AudioContext ||
-        window.webkitAudioContext;
+    try {
+        const AudioContextClass =
+            window.AudioContext || window.webkitAudioContext;
 
-    if (!AudioContextClass) {
+        if (!AudioContextClass) {
+            console.warn("Web Audio API is not supported.");
+            audioEnabled = false;
+            return null;
+        }
+
+        audioContext = new AudioContextClass();
+
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = masterVolume;
+        masterGain.connect(audioContext.destination);
+
+        initialized = true;
+
+        return audioContext;
+    } catch (error) {
+        console.warn("Could not create AudioContext:", error);
         audioEnabled = false;
         return null;
     }
-
-    audioContext =
-        new AudioContextClass();
-
-    masterGain =
-        audioContext.createGain();
-
-    masterGain.gain.value =
-        masterVolume;
-
-    masterGain.connect(
-        audioContext.destination
-    );
-
-    return audioContext;
 }
 
-export function initAudio() {
+// --------------------------------------------------
+// INITIALIZE AUDIO
+// --------------------------------------------------
+
+function initAudio() {
+    if (initialized) {
+        return audioContext;
+    }
+
     return createAudioContext();
 }
 
-export async function resumeAudio() {
+// --------------------------------------------------
+// USER GESTURE
+// --------------------------------------------------
+
+async function resumeAudio() {
+    if (!audioEnabled) {
+        return false;
+    }
+
     if (!audioContext) {
         createAudioContext();
     }
 
-    if (
-        audioContext &&
-        audioContext.state === "suspended"
-    ) {
-        try {
-            await audioContext.resume();
-        } catch (error) {
-            console.warn(
-                "Universe Smash audio could not resume:",
-                error
-            );
-        }
+    if (!audioContext) {
+        return false;
     }
 
-    return audioContext;
+    try {
+        if (audioContext.state === "suspended") {
+            await audioContext.resume();
+        }
+
+        userGestureReceived = true;
+
+        return audioContext.state === "running";
+    } catch (error) {
+        console.warn("Unable to resume AudioContext:", error);
+        return false;
+    }
 }
 
-export function enableAudio() {
+// Automatically resume when the game receives a user gesture.
+function setupUserGestureAudio() {
+    const activateAudio = () => {
+        userGestureReceived = true;
+        resumeAudio();
+    };
+
+    window.addEventListener(
+        "universe-smash-user-gesture",
+        activateAudio,
+        { passive: true }
+    );
+
+    // These listeners only activate audio after a real user action.
+    window.addEventListener(
+        "pointerdown",
+        activateAudio,
+        { passive: true, once: false }
+    );
+
+    window.addEventListener(
+        "keydown",
+        activateAudio,
+        { passive: true, once: false }
+    );
+}
+
+// --------------------------------------------------
+// ENABLE / DISABLE
+// --------------------------------------------------
+
+function enableAudio() {
     audioEnabled = true;
 
-    createAudioContext();
+    if (!audioContext) {
+        createAudioContext();
+    }
 
-    resumeAudio();
-
-    return true;
+    if (userGestureReceived) {
+        resumeAudio();
+    }
 }
 
-export function disableAudio() {
+function disableAudio() {
     audioEnabled = false;
-
-    stopAllSounds();
-
-    return false;
 }
 
-export function isAudioEnabled() {
+function isAudioEnabled() {
     return audioEnabled;
 }
 
-export function setMasterVolume(volume) {
-    masterVolume =
-        Math.max(
-            0,
-            Math.min(
-                1,
-                Number(volume) || 0
-            )
-        );
+// --------------------------------------------------
+// VOLUME
+// --------------------------------------------------
+
+function setMasterVolume(value) {
+    masterVolume = Math.max(0, Math.min(1, Number(value) || 0));
 
     if (masterGain) {
         masterGain.gain.setTargetAtTime(
@@ -103,425 +151,291 @@ export function setMasterVolume(volume) {
             0.01
         );
     }
+}
 
+function getMasterVolume() {
     return masterVolume;
 }
 
-export function getMasterVolume() {
-    return masterVolume;
-}
+// --------------------------------------------------
+// INTERNAL HELPERS
+// --------------------------------------------------
 
-function canPlay() {
-    return (
-        audioEnabled &&
-        audioContext &&
-        masterGain
-    );
-}
-
-function rememberSource(source) {
-    activeSources.add(source);
-
-    source.addEventListener(
-        "ended",
-        () => {
-            activeSources.delete(source);
-        },
-        {
-            once: true
-        }
-    );
-
-    return source;
-}
-
-function playTone({
-    frequency = 440,
-    duration = 0.15,
-    type = "sine",
-    volume = 0.2,
-    slideTo = null
-} = {}) {
+function canPlaySound() {
     if (!audioEnabled) {
-        return null;
-    }
-
-    if (!audioContext) {
-        createAudioContext();
+        return false;
     }
 
     if (!audioContext || !masterGain) {
-        return null;
+        return false;
     }
 
-    if (audioContext.state === "suspended") {
-        resumeAudio();
+    if (audioContext.state !== "running") {
+        return false;
     }
 
-    const oscillator =
-        audioContext.createOscillator();
+    return true;
+}
 
-    const gain =
-        audioContext.createGain();
+function playTone(
+    frequency,
+    duration = 0.15,
+    type = "sine",
+    volume = 0.15,
+    endFrequency = null
+) {
+    if (!canPlaySound()) {
+        return;
+    }
 
-    const now =
-        audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
 
     oscillator.type = type;
-
     oscillator.frequency.setValueAtTime(
         frequency,
-        now
+        audioContext.currentTime
     );
 
-    if (slideTo !== null) {
+    if (endFrequency !== null) {
         oscillator.frequency.exponentialRampToValueAtTime(
-            Math.max(1, slideTo),
-            now + duration
+            Math.max(20, endFrequency),
+            audioContext.currentTime + duration
         );
     }
 
     gain.gain.setValueAtTime(
         0.0001,
-        now
+        audioContext.currentTime
     );
 
     gain.gain.exponentialRampToValueAtTime(
         Math.max(0.0001, volume),
-        now + 0.01
+        audioContext.currentTime + 0.01
     );
 
     gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        now + duration
+        audioContext.currentTime + duration
     );
 
     oscillator.connect(gain);
     gain.connect(masterGain);
 
-    oscillator.start(now);
-    oscillator.stop(now + duration);
+    oscillator.start();
 
-    return rememberSource(
-        oscillator
+    oscillator.stop(
+        audioContext.currentTime + duration + 0.02
     );
 }
 
-function playNoise({
+function playNoise(
     duration = 0.2,
     volume = 0.12,
     filterFrequency = 1200
-} = {}) {
-    if (!audioEnabled) {
-        return null;
+) {
+    if (!canPlaySound()) {
+        return;
     }
 
-    if (!audioContext) {
-        createAudioContext();
-    }
+    const bufferSize = Math.floor(
+        audioContext.sampleRate * duration
+    );
 
-    if (!audioContext || !masterGain) {
-        return null;
-    }
+    const buffer = audioContext.createBuffer(
+        1,
+        bufferSize,
+        audioContext.sampleRate
+    );
 
-    const bufferSize =
-        Math.floor(
-            audioContext.sampleRate *
-            duration
-        );
-
-    const buffer =
-        audioContext.createBuffer(
-            1,
-            bufferSize,
-            audioContext.sampleRate
-        );
-
-    const data =
-        buffer.getChannelData(0);
+    const data = buffer.getChannelData(0);
 
     for (let i = 0; i < bufferSize; i++) {
-        data[i] =
-            Math.random() * 2 - 1;
+        data[i] = Math.random() * 2 - 1;
     }
 
-    const source =
-        audioContext.createBufferSource();
-
-    const filter =
-        audioContext.createBiquadFilter();
-
-    const gain =
-        audioContext.createGain();
-
-    const now =
-        audioContext.currentTime;
+    const source = audioContext.createBufferSource();
+    const filter = audioContext.createBiquadFilter();
+    const gain = audioContext.createGain();
 
     source.buffer = buffer;
 
-    filter.type =
-        "lowpass";
-
-    filter.frequency.setValueAtTime(
-        filterFrequency,
-        now
-    );
+    filter.type = "lowpass";
+    filter.frequency.value = filterFrequency;
 
     gain.gain.setValueAtTime(
-        0.0001,
-        now
-    );
-
-    gain.gain.exponentialRampToValueAtTime(
-        Math.max(0.0001, volume),
-        now + 0.01
+        volume,
+        audioContext.currentTime
     );
 
     gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        now + duration
+        audioContext.currentTime + duration
     );
 
     source.connect(filter);
     filter.connect(gain);
     gain.connect(masterGain);
 
-    source.start(now);
-    source.stop(now + duration);
+    source.start();
 
-    return rememberSource(
-        source
+    source.stop(
+        audioContext.currentTime + duration + 0.02
     );
 }
 
-export function playClickSound() {
-    return playTone({
-        frequency: 520,
-        duration: 0.07,
-        type: "square",
-        volume: 0.08,
-        slideTo: 620
-    });
+// --------------------------------------------------
+// MENU SOUNDS
+// --------------------------------------------------
+
+function playClickSound() {
+    playTone(520, 0.07, "square", 0.08, 620);
 }
 
-export function playMenuSelect() {
-    playTone({
-        frequency: 420,
-        duration: 0.08,
-        type: "sine",
-        volume: 0.08,
-        slideTo: 650
-    });
-
-    setTimeout(() => {
-        playTone({
-            frequency: 650,
-            duration: 0.1,
-            type: "sine",
-            volume: 0.07
-        });
-    }, 60);
+function playMenuSelect() {
+    playTone(700, 0.09, "sine", 0.1, 900);
 }
 
-export function playLaserSound() {
-    return playTone({
-        frequency: 900,
-        duration: 0.18,
-        type: "sawtooth",
-        volume: 0.12,
-        slideTo: 180
-    });
+function playSelectSound() {
+    playTone(780, 0.1, "triangle", 0.1, 980);
 }
 
-export function playIceLaserSound() {
-    return playTone({
-        frequency: 1400,
-        duration: 0.25,
-        type: "triangle",
-        volume: 0.1,
-        slideTo: 650
-    });
+// --------------------------------------------------
+// WEAPON SOUNDS
+// --------------------------------------------------
+
+function playLaserSound() {
+    playTone(900, 0.18, "sawtooth", 0.11, 180);
 }
 
-export function playAsteroidImpact() {
-    playNoise({
-        duration: 0.28,
-        volume: 0.16,
-        filterFrequency: 850
-    });
-
-    setTimeout(() => {
-        playTone({
-            frequency: 90,
-            duration: 0.22,
-            type: "sine",
-            volume: 0.13,
-            slideTo: 45
-        });
-    }, 25);
+function playIceLaserSound() {
+    playTone(1300, 0.25, "sine", 0.1, 500);
+    playTone(1750, 0.12, "triangle", 0.05, 800);
 }
 
-export function playExplosionSound() {
-    playNoise({
-        duration: 0.5,
-        volume: 0.2,
-        filterFrequency: 700
-    });
-
-    setTimeout(() => {
-        playTone({
-            frequency: 75,
-            duration: 0.42,
-            type: "sine",
-            volume: 0.18,
-            slideTo: 28
-        });
-    }, 20);
+function playAsteroidImpact() {
+    playNoise(0.22, 0.14, 900);
+    playTone(90, 0.22, "square", 0.12, 45);
 }
 
-export function playAntimatterSound() {
-    playTone({
-        frequency: 1000,
-        duration: 0.3,
-        type: "sine",
-        volume: 0.12,
-        slideTo: 1800
-    });
-
-    setTimeout(() => {
-        playNoise({
-            duration: 0.35,
-            volume: 0.15,
-            filterFrequency: 1800
-        });
-    }, 180);
+function playExplosionSound() {
+    playNoise(0.45, 0.18, 700);
+    playTone(75, 0.35, "sawtooth", 0.12, 30);
 }
 
-export function playAlienSound() {
-    playTone({
-        frequency: 330,
-        duration: 0.12,
-        type: "square",
-        volume: 0.08,
-        slideTo: 880
-    });
-
-    setTimeout(() => {
-        playTone({
-            frequency: 880,
-            duration: 0.16,
-            type: "square",
-            volume: 0.08,
-            slideTo: 440
-        });
-    }, 100);
+function playAntimatterSound() {
+    playTone(1100, 0.35, "sine", 0.12, 70);
+    playTone(180, 0.5, "triangle", 0.1, 35);
 }
 
-export function playMysterySound() {
-    const notes = [
-        220,
+// Backwards-compatible name.
+// Older planet-mode.js files can use playAntimatter.
+function playAntimatter(...args) {
+    return playAntimatterSound(...args);
+}
+
+function playAlienSound() {
+    playTone(420, 0.12, "square", 0.08, 820);
+    playTone(820, 0.16, "square", 0.08, 300);
+}
+
+function playMysterySound() {
+    const frequencies = [
+        260,
         330,
-        440,
+        410,
+        520,
         660,
-        550
+        830
     ];
 
-    notes.forEach(
-        (frequency, index) => {
-            setTimeout(() => {
-                playTone({
-                    frequency,
-                    duration: 0.12,
-                    type: "triangle",
-                    volume: 0.07
-                });
-            }, index * 90);
-        }
+    const frequency =
+        frequencies[
+            Math.floor(Math.random() * frequencies.length)
+        ];
+
+    playTone(
+        frequency,
+        0.3,
+        "triangle",
+        0.12,
+        frequency * 1.8
     );
 }
 
-export function playBlackHoleSound() {
-    playTone({
-        frequency: 100,
-        duration: 0.8,
-        type: "sine",
-        volume: 0.12,
-        slideTo: 25
-    });
+// --------------------------------------------------
+// COSMIC OBJECT SOUNDS
+// --------------------------------------------------
+
+function playBlackHoleSound() {
+    playTone(55, 0.6, "sine", 0.16, 25);
+    playNoise(0.4, 0.07, 250);
 }
 
-export function playWormholeSound() {
-    playTone({
-        frequency: 180,
-        duration: 0.5,
-        type: "sawtooth",
-        volume: 0.09,
-        slideTo: 1100
-    });
+function playWormholeSound() {
+    playTone(300, 0.35, "sine", 0.1, 1000);
+    playTone(1000, 0.3, "triangle", 0.08, 300);
 }
 
-export function playGreyHoleSound() {
-    playTone({
-        frequency: 65,
-        duration: 0.7,
-        type: "triangle",
-        volume: 0.08,
-        slideTo: 42
-    });
+function playGreyHoleSound() {
+    playTone(90, 0.5, "sine", 0.08, 45);
+    playTone(180, 0.25, "triangle", 0.05, 100);
 }
 
-export function playSpawnSound() {
-    playTone({
-        frequency: 260,
-        duration: 0.18,
-        type: "sine",
-        volume: 0.07,
-        slideTo: 520
-    });
+function playSpawnSound() {
+    playTone(350, 0.08, "sine", 0.07, 550);
 }
 
-export function playSelectSound() {
-    return playClickSound();
+function playPauseSound() {
+    playTone(440, 0.1, "square", 0.07, 300);
 }
 
-export function playPauseSound() {
-    return playTone({
-        frequency: 300,
-        duration: 0.12,
-        type: "triangle",
-        volume: 0.07
-    });
+// --------------------------------------------------
+// SOUND CLEANUP
+// --------------------------------------------------
+
+function stopAllSounds() {
+    // Short synthesized sounds naturally end on their own.
+    // This function exists for compatibility with the game.
 }
 
-export function stopAllSounds() {
-    for (const source of activeSources) {
-        try {
-            source.stop();
-        } catch (error) {
-            // Source may already have stopped.
-        }
-    }
+// --------------------------------------------------
+// DEFAULT SOUND LOADING
+// --------------------------------------------------
 
-    activeSources.clear();
-}
-
-export function loadDefaultSounds() {
-    if (!audioContext) {
-        createAudioContext();
-    }
-
+function loadDefaultSounds() {
+    // The game uses Web Audio synthesis,
+    // so external sound files are not required.
     return true;
 }
 
-export function destroyAudio() {
-    stopAllSounds();
+// --------------------------------------------------
+// AUDIO STATE
+// --------------------------------------------------
 
+function getAudioState() {
+    return {
+        enabled: audioEnabled,
+        initialized,
+        userGestureReceived,
+        volume: masterVolume,
+        contextState: audioContext
+            ? audioContext.state
+            : "not-created"
+    };
+}
+
+// --------------------------------------------------
+// DESTROY
+// --------------------------------------------------
+
+async function destroyAudio() {
     if (audioContext) {
         try {
-            audioContext.close();
+            await audioContext.close();
         } catch (error) {
             console.warn(
-                "Universe Smash audio cleanup failed:",
+                "Error closing AudioContext:",
                 error
             );
         }
@@ -529,22 +443,15 @@ export function destroyAudio() {
 
     audioContext = null;
     masterGain = null;
+    initialized = false;
+    userGestureReceived = false;
 }
 
-export function getAudioState() {
-    return {
-        enabled: audioEnabled,
-        volume: masterVolume,
-        contextState:
-            audioContext
-                ? audioContext.state
-                : "uninitialized",
-        activeSources:
-            activeSources.size
-    };
-}
+// --------------------------------------------------
+// GLOBAL ACCESS
+// --------------------------------------------------
 
-export const AudioSystem = {
+window.UniverseSmashAudio = {
     initAudio,
     enableAudio,
     disableAudio,
@@ -552,6 +459,7 @@ export const AudioSystem = {
     setMasterVolume,
     getMasterVolume,
     resumeAudio,
+
     playClickSound,
     playMenuSelect,
     playLaserSound,
@@ -559,6 +467,10 @@ export const AudioSystem = {
     playAsteroidImpact,
     playExplosionSound,
     playAntimatterSound,
+
+    // Compatibility alias
+    playAntimatter,
+
     playAlienSound,
     playMysterySound,
     playBlackHoleSound,
@@ -567,10 +479,54 @@ export const AudioSystem = {
     playSpawnSound,
     playSelectSound,
     playPauseSound,
+
     stopAllSounds,
     loadDefaultSounds,
     destroyAudio,
     getAudioState
 };
 
-window.UniverseSmashAudio = AudioSystem;
+// --------------------------------------------------
+// STARTUP
+// --------------------------------------------------
+
+setupUserGestureAudio();
+
+// --------------------------------------------------
+// EXPORTS
+// --------------------------------------------------
+
+export {
+    initAudio,
+    enableAudio,
+    disableAudio,
+    isAudioEnabled,
+    setMasterVolume,
+    getMasterVolume,
+    resumeAudio,
+
+    playClickSound,
+    playMenuSelect,
+    playLaserSound,
+    playIceLaserSound,
+    playAsteroidImpact,
+    playExplosionSound,
+    playAntimatterSound,
+
+    // Compatibility alias
+    playAntimatter,
+
+    playAlienSound,
+    playMysterySound,
+    playBlackHoleSound,
+    playWormholeSound,
+    playGreyHoleSound,
+    playSpawnSound,
+    playSelectSound,
+    playPauseSound,
+
+    stopAllSounds,
+    loadDefaultSounds,
+    destroyAudio,
+    getAudioState
+};
