@@ -1,13 +1,13 @@
-// Universe Smash
-// Planet Mode
-// One-planet destruction sandbox with fictional weapons.
+// Universe Smash - Planet Mode
+// Single-planet mode with fictional weapons
 
 import {
     createPlanet,
     updatePlanet,
     drawPlanet,
     damagePlanet,
-    healPlanet
+    healPlanet,
+    getPlanetHealth
 } from "../objects/planet.js";
 
 import {
@@ -27,582 +27,640 @@ import {
     createExplosion,
     createImpact,
     createAntimatterEffect,
+    createShockwave,
     updateParticles,
     drawParticles,
     clearParticles
 } from "../particles.js";
 
 import {
-    playLaser,
-    playExplosion,
-    playAntimatter,
-    playSpawn,
-    playClick
+    playLaserSound,
+    playIceLaserSound,
+    playAsteroidImpact,
+    playExplosionSound,
+    playAntimatterSound,
+    playAlienSound,
+    playMysterySound,
+    playSpawnSound,
+    playClickSound
 } from "../audio.js";
 
 let canvas = null;
 let ctx = null;
 
 let running = false;
+let paused = false;
+
 let planet = null;
-
 let effects = [];
-let weapon = "laser";
 
-let lastShotTime = 0;
-let shotCooldown = 180;
+let selectedWeapon = "laser";
 
 let alienShips = [];
-let mysteryEffects = [];
+let projectiles = [];
+
+let lastTime = 0;
 
 const WEAPONS = {
     laser: {
-        name: "Laser",
-        damage: 12,
-        cooldown: 180
+        name: "LASER",
+        damage: 12
     },
 
-    "ice-laser": {
-        name: "Ice Laser",
-        damage: 8,
-        cooldown: 220
+    ice: {
+        name: "ICE LASER",
+        damage: 8
     },
 
     asteroid: {
-        name: "Asteroid",
-        damage: 30,
-        cooldown: 700
-    },
-
-    mystery: {
-        name: "Mystery Matter Gun",
-        damage: 20,
-        cooldown: 500
+        name: "ASTEROID",
+        damage: 35
     },
 
     alien: {
-        name: "Alien Ship",
-        damage: 18,
-        cooldown: 600
+        name: "ALIEN SHIP",
+        damage: 20
     },
 
     antimatter: {
-        name: "Antimatter",
-        damage: 80,
-        cooldown: 1200
+        name: "ANTIMATTER",
+        damage: 100
+    },
+
+    mystery: {
+        name: "MYSTERY MATTER",
+        damage: 25
     }
 };
 
-function random(min, max) {
-    return Math.random() * (max - min) + min;
-}
 
-function getCenter() {
-    return {
-        x: canvas.width / 2,
-        y: canvas.height / 2
-    };
-}
+// --------------------------------------------------
+// START
+// --------------------------------------------------
 
-function createPlanetModeWorld() {
-    const center = getCenter();
-
-    planet = createPlanet({
-        x: center.x,
-        y: center.y,
-        radius: Math.min(canvas.width, canvas.height) * 0.22,
-        mass: 5.972e24,
-        health: 1000,
-        maxHealth: 1000,
-        temperature: 288,
-        atmosphere: true,
-        rings: false,
-        rotationSpeed: 0.002
-    });
-
-    alienShips = [];
-    mysteryEffects = [];
-
-    clearParticles();
-
-    effects = [];
-}
-
-export function startPlanetMode(targetCanvas) {
+function startPlanetMode(targetCanvas) {
     canvas = targetCanvas;
+
+    if (!canvas) {
+        console.error("Universe Smash: Planet Mode could not find canvas.");
+        return false;
+    }
+
     ctx = canvas.getContext("2d");
 
     running = true;
+    paused = false;
 
-    weapon = "laser";
-    lastShotTime = 0;
-
-    createPlanetModeWorld();
-
-    setupPlanetModeControls();
-}
-
-export function stopPlanetMode() {
-    running = false;
-
-    alienShips = [];
-    mysteryEffects = [];
+    lastTime = performance.now();
 
     clearParticles();
 
     effects = [];
-}
+    alienShips = [];
+    projectiles = [];
 
-export function getPlanetMode() {
-    return {
-        running,
-        planet,
-        weapon,
-        alienShips,
-        mysteryEffects
-    };
-}
+    createNewPlanet();
 
-export function setPlanetWeapon(newWeapon) {
-    if (!WEAPONS[newWeapon]) {
-        return false;
-    }
-
-    weapon = newWeapon;
-
-    try {
-        playClick();
-    } catch (error) {
-        // Audio is optional.
-    }
-
-    updateWeaponUI();
+    window.dispatchEvent(
+        new CustomEvent("universe-smash-planet-mode-started")
+    );
 
     return true;
 }
 
-export function getPlanetWeapon() {
-    return weapon;
-}
 
-function canFire() {
-    const now = performance.now();
+// --------------------------------------------------
+// CREATE PLANET
+// --------------------------------------------------
 
-    if (now - lastShotTime < shotCooldown) {
-        return false;
-    }
+function createNewPlanet() {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
 
-    lastShotTime = now;
+    const radius = Math.min(
+        canvas.width,
+        canvas.height
+    ) * 0.18;
 
-    return true;
-}
+    planet = createPlanet({
+        x: centerX,
+        y: centerY,
+        radius: radius,
+        mass: 5.972e24,
 
-function updateCooldown() {
-    shotCooldown = WEAPONS[weapon]?.cooldown ?? 300;
-}
+        colors: {
+            ocean: "#2367a8",
+            land: "#4f8a45",
+            atmosphere: "#66b3ff"
+        },
 
-function randomPlanetImpact() {
+        atmosphere: true,
+        rings: false,
+
+        health: 100,
+        maxHealth: 100,
+
+        temperature: 288
+    });
+
     if (!planet) {
-        return {
-            x: canvas.width / 2,
-            y: canvas.height / 2
-        };
+        console.error("Universe Smash: Failed to create planet.");
     }
-
-    const angle = random(0, Math.PI * 2);
-
-    const distance = planet.radius * random(0.75, 1);
-
-    return {
-        x: planet.x + Math.cos(angle) * distance,
-        y: planet.y + Math.sin(angle) * distance
-    };
 }
 
-function fireLaser() {
-    const impact = randomPlanetImpact();
+
+// --------------------------------------------------
+// STOP
+// --------------------------------------------------
+
+function stopPlanetMode() {
+    running = false;
+    paused = false;
+
+    effects = [];
+    alienShips = [];
+    projectiles = [];
+
+    clearParticles();
+
+    planet = null;
+
+    window.dispatchEvent(
+        new CustomEvent("universe-smash-planet-mode-stopped")
+    );
+}
+
+
+// --------------------------------------------------
+// WEAPON SELECTION
+// --------------------------------------------------
+
+function selectWeapon(weapon) {
+    if (!WEAPONS[weapon]) {
+        return false;
+    }
+
+    selectedWeapon = weapon;
+
+    playClickSound();
+
+    window.dispatchEvent(
+        new CustomEvent("universe-smash-weapon-selected", {
+            detail: {
+                weapon
+            }
+        })
+    );
+
+    return true;
+}
+
+
+// --------------------------------------------------
+// USE WEAPON
+// --------------------------------------------------
+
+function usePlanetWeapon(weapon = selectedWeapon, x = null, y = null) {
+    if (!running || paused || !planet) {
+        return false;
+    }
+
+    if (!WEAPONS[weapon]) {
+        weapon = selectedWeapon;
+    }
+
+    selectedWeapon = weapon;
+
+    const targetX =
+        x === null ? planet.x : x;
+
+    const targetY =
+        y === null ? planet.y : y;
+
+    switch (weapon) {
+
+        case "laser":
+            fireLaser(targetX, targetY);
+            break;
+
+        case "ice":
+            fireIceLaser(targetX, targetY);
+            break;
+
+        case "asteroid":
+            launchAsteroid(targetX, targetY);
+            break;
+
+        case "alien":
+            launchAlienShip(targetX, targetY);
+            break;
+
+        case "antimatter":
+            fireAntimatter(targetX, targetY);
+            break;
+
+        case "mystery":
+            fireMysteryMatter(targetX, targetY);
+            break;
+
+        default:
+            fireLaser(targetX, targetY);
+            break;
+    }
+
+    return true;
+}
+
+
+// --------------------------------------------------
+// LASER
+// --------------------------------------------------
+
+function fireLaser(x, y) {
+
+    playLaserSound();
 
     damagePlanet(planet, WEAPONS.laser.damage);
 
+    createImpact(
+        planet.x,
+        planet.y,
+        20
+    );
+
+    createShockwave(
+        planet.x,
+        planet.y,
+        20,
+        90
+    );
+
     effects.push({
         type: "laser",
-        x: impact.x,
-        y: impact.y,
-        life: 220,
-        maxLife: 220
+        x1: canvas.width / 2,
+        y1: 0,
+        x2: x,
+        y2: y,
+        life: 0.15,
+        maxLife: 0.15
     });
 
-    try {
-        playLaser();
-    } catch (error) {
-        // Audio is optional.
-    }
-
-    try {
-        createImpact(impact.x, impact.y, {
-            color: "#ffffff",
-            count: 18,
-            speed: 3
-        });
-    } catch (error) {
-        // Particle effects are optional.
-    }
+    checkPlanetDestroyed();
 }
 
-function fireIceLaser() {
-    const impact = randomPlanetImpact();
 
-    damagePlanet(planet, WEAPONS["ice-laser"].damage);
+// --------------------------------------------------
+// ICE LASER
+// --------------------------------------------------
+
+function fireIceLaser(x, y) {
+
+    playIceLaserSound();
+
+    damagePlanet(
+        planet,
+        WEAPONS.ice.damage
+    );
+
+    planet.temperature =
+        Math.max(
+            -200,
+            (planet.temperature || 288) - 40
+        );
 
     effects.push({
         type: "ice",
-        x: impact.x,
-        y: impact.y,
-        life: 500,
-        maxLife: 500
+        x1: canvas.width / 2,
+        y1: canvas.height,
+        x2: x,
+        y2: y,
+        life: 0.3,
+        maxLife: 0.3
     });
 
-    try {
-        playLaser();
-    } catch (error) {
-        // Audio is optional.
-    }
+    createImpact(
+        x,
+        y,
+        15
+    );
 
-    try {
-        createImpact(impact.x, impact.y, {
-            color: "#9eeaff",
-            count: 25,
-            speed: 2.5
-        });
-    } catch (error) {
-        // Particle effects are optional.
-    }
+    checkPlanetDestroyed();
 }
 
-function fireAsteroid() {
-    const center = getCenter();
 
-    const angle = random(0, Math.PI * 2);
+// --------------------------------------------------
+// ASTEROID
+// --------------------------------------------------
 
-    const distance = Math.max(canvas.width, canvas.height) * 0.65;
+function launchAsteroid(x, y) {
+
+    playAsteroidImpact();
+
+    const startX =
+        canvas.width / 2;
+
+    const startY =
+        canvas.height / 2;
 
     const asteroid = createAsteroid({
-        x: center.x + Math.cos(angle) * distance,
-        y: center.y + Math.sin(angle) * distance,
-        radius: random(12, 28),
-        mass: random(100, 500),
-        vx: -Math.cos(angle) * random(2, 5),
-        vy: -Math.sin(angle) * random(2, 5)
+        x: startX,
+        y: startY,
+        radius: Math.max(
+            10,
+            planet.radius * 0.12
+        ),
+        mass: 1e15
     });
 
-    asteroid.targetPlanet = true;
+    if (!asteroid) return;
 
-    alienShips.push({
-        type: "incoming-asteroid",
-        object: asteroid,
-        life: 4000
-    });
-
-    try {
-        playSpawn();
-    } catch (error) {
-        // Audio is optional.
-    }
-}
-
-function fireMysteryMatter() {
-    const impact = randomPlanetImpact();
-
-    const possibleEffects = [
-        "pulse",
-        "freeze",
-        "gravity",
-        "heal",
-        "shockwave",
-        "mini-explosion"
-    ];
-
-    const selected =
-        possibleEffects[
-            Math.floor(Math.random() * possibleEffects.length)
-        ];
-
-    mysteryEffects.push({
-        type: selected,
-        x: impact.x,
-        y: impact.y,
-        life: 1200,
-        maxLife: 1200
-    });
-
-    switch (selected) {
-        case "pulse":
-            damagePlanet(planet, 35);
-            break;
-
-        case "freeze":
-            damagePlanet(planet, 20);
-            planet.temperature = Math.max(
-                20,
-                (planet.temperature || 288) - 100
-            );
-            break;
-
-        case "gravity":
-            damagePlanet(planet, 50);
-            break;
-
-        case "heal":
-            healPlanet(planet, 80);
-            break;
-
-        case "shockwave":
-            damagePlanet(planet, 45);
-            break;
-
-        case "mini-explosion":
-            damagePlanet(planet, 60);
-
-            try {
-                createExplosion(
-                    impact.x,
-                    impact.y,
-                    35
-                );
-            } catch (error) {
-                // Particle effects are optional.
-            }
-
-            break;
-    }
-
-    try {
-        createImpact(impact.x, impact.y, {
-            color: "#d8a8ff",
-            count: 30,
-            speed: 4
-        });
-    } catch (error) {
-        // Particle effects are optional.
-    }
-}
-
-function fireAlienShip() {
-    const center = getCenter();
-
-    const angle = random(0, Math.PI * 2);
+    const dx = x - startX;
+    const dy = y - startY;
 
     const distance =
-        Math.max(canvas.width, canvas.height) * 0.55;
+        Math.sqrt(dx * dx + dy * dy) || 1;
+
+    asteroid.vx =
+        (dx / distance) * 350;
+
+    asteroid.vy =
+        (dy / distance) * 350;
+
+    asteroid.life = 2;
+
+    effects.push({
+        type: "asteroid",
+        object: asteroid
+    });
+
+    damagePlanet(
+        planet,
+        WEAPONS.asteroid.damage
+    );
+
+    createExplosion(
+        x,
+        y,
+        30
+    );
+
+    checkPlanetDestroyed();
+}
+
+
+// --------------------------------------------------
+// ALIEN SHIP
+// --------------------------------------------------
+
+function launchAlienShip(x, y) {
+
+    playAlienSound();
+
+    const startX = 0;
+    const startY = canvas.height / 2;
 
     const ship = {
-        x: center.x + Math.cos(angle) * distance,
-        y: center.y + Math.sin(angle) * distance,
+        type: "alien-ship",
+
+        x: startX,
+        y: startY,
 
         vx: 0,
         vy: 0,
 
-        life: 3500,
-        damage: WEAPONS.alien.damage,
+        targetX: x,
+        targetY: y,
 
-        angle: angle + Math.PI
+        radius: 12,
+
+        life: 4
     };
 
-    alienShips.push({
-        type: "alien-ship",
-        object: ship,
-        life: 3500
-    });
+    const dx = x - startX;
+    const dy = y - startY;
 
-    try {
-        playSpawn();
-    } catch (error) {
-        // Audio is optional.
-    }
+    const distance =
+        Math.sqrt(dx * dx + dy * dy) || 1;
+
+    ship.vx =
+        (dx / distance) * 300;
+
+    ship.vy =
+        (dy / distance) * 300;
+
+    alienShips.push(ship);
 }
 
-function fireAntimatter() {
-    const impact = randomPlanetImpact();
+
+// --------------------------------------------------
+// ANTIMATTER
+// --------------------------------------------------
+
+function fireAntimatter(x, y) {
+
+    playAntimatterSound();
+
+    createAntimatterEffect(
+        x,
+        y,
+        70
+    );
+
+    createShockwave(
+        x,
+        y,
+        30,
+        180
+    );
 
     damagePlanet(
         planet,
         WEAPONS.antimatter.damage
     );
 
-    try {
-        triggerAntimatterReaction(
-            createAntimatterPlanet({
-                x: impact.x,
-                y: impact.y,
-                radius: 5,
-                health: 1,
-                maxHealth: 1
-            })
+    planet.temperature =
+        Math.min(
+            10000,
+            (planet.temperature || 288) + 1000
         );
-    } catch (error) {
-        // The visual effect below still works.
-    }
 
-    try {
-        createAntimatterEffect(
-            impact.x,
-            impact.y
-        );
-    } catch (error) {
+    if (typeof triggerAntimatterReaction === "function") {
         try {
-            createExplosion(
-                impact.x,
-                impact.y,
-                90
+            triggerAntimatterReaction(
+                planet,
+                x,
+                y
             );
-        } catch (particleError) {
-            // Particle effects are optional.
+        } catch (error) {
+            console.warn(
+                "Antimatter reaction warning:",
+                error
+            );
         }
     }
 
-    effects.push({
-        type: "antimatter",
-        x: impact.x,
-        y: impact.y,
-        life: 1000,
-        maxLife: 1000
-    });
-
-    try {
-        playAntimatter();
-    } catch (error) {
-        // Audio is optional.
-    }
+    checkPlanetDestroyed();
 }
 
-export function usePlanetWeapon(selectedWeapon = weapon) {
-    if (!running || !planet) {
-        return false;
-    }
 
-    if (!WEAPONS[selectedWeapon]) {
-        return false;
-    }
+// --------------------------------------------------
+// MYSTERY MATTER
+// --------------------------------------------------
 
-    weapon = selectedWeapon;
+function fireMysteryMatter(x, y) {
 
-    updateCooldown();
+    playMysterySound();
 
-    if (!canFire()) {
-        return false;
-    }
+    const effect =
+        Math.floor(Math.random() * 5);
 
-    switch (weapon) {
-        case "laser":
-            fireLaser();
-            break;
+    switch (effect) {
 
-        case "ice-laser":
-            fireIceLaser();
-            break;
-
-        case "asteroid":
-            fireAsteroid();
-            break;
-
-        case "mystery":
-            fireMysteryMatter();
-            break;
-
-        case "alien":
-            fireAlienShip();
-            break;
-
-        case "antimatter":
-            fireAntimatter();
-            break;
-
-        default:
-            return false;
-    }
-
-    updateWeaponUI();
-
-    return true;
-}
-
-function updateAlienShips(deltaTime) {
-    const center = getCenter();
-
-    for (const entry of alienShips) {
-        const ship = entry.object;
-
-        if (!ship) {
-            entry.life = 0;
-            continue;
-        }
-
-        const dx = center.x - ship.x;
-        const dy = center.y - ship.y;
-
-        const distance = Math.sqrt(
-            dx * dx + dy * dy
-        );
-
-        if (distance > 1) {
-            const speed = 0.0008 * deltaTime;
-
-            ship.x += (dx / distance) * speed;
-            ship.y += (dy / distance) * speed;
-        }
-
-        entry.life -= deltaTime;
-
-        if (
-            distance <
-            (planet?.radius || 100) + 20
-        ) {
+        case 0:
+            // Huge impact
             damagePlanet(
                 planet,
-                ship.damage
+                50
             );
 
-            try {
-                createExplosion(
-                    ship.x,
-                    ship.y,
-                    35
+            createExplosion(
+                x,
+                y,
+                80
+            );
+
+            createShockwave(
+                x,
+                y,
+                50,
+                220
+            );
+
+            break;
+
+        case 1:
+            // Small impact
+            damagePlanet(
+                planet,
+                15
+            );
+
+            createImpact(
+                x,
+                y,
+                25
+            );
+
+            break;
+
+        case 2:
+            // Temperature spike
+            planet.temperature =
+                Math.min(
+                    5000,
+                    (planet.temperature || 288) + 800
                 );
-            } catch (error) {
-                // Particle effects are optional.
-            }
 
-            entry.life = 0;
-        }
+            createExplosion(
+                x,
+                y,
+                40
+            );
+
+            break;
+
+        case 3:
+            // Healing effect
+            healPlanet(
+                planet,
+                15
+            );
+
+            createImpact(
+                x,
+                y,
+                20
+            );
+
+            break;
+
+        case 4:
+            // Gravity-like shock
+            damagePlanet(
+                planet,
+                30
+            );
+
+            createShockwave(
+                x,
+                y,
+                20,
+                300
+            );
+
+            break;
     }
 
-    alienShips = alienShips.filter(
-        entry => entry.life > 0
-    );
+    checkPlanetDestroyed();
 }
 
-function updateMysteryEffects(deltaTime) {
-    for (const effect of mysteryEffects) {
-        effect.life -= deltaTime;
+
+// --------------------------------------------------
+// PLANET DESTRUCTION
+// --------------------------------------------------
+
+function checkPlanetDestroyed() {
+
+    const health =
+        getPlanetHealth(planet);
+
+    if (health <= 0) {
+
+        playExplosionSound();
+
+        createExplosion(
+            planet.x,
+            planet.y,
+            planet.radius * 2
+        );
+
+        createShockwave(
+            planet.x,
+            planet.y,
+            planet.radius,
+            planet.radius * 4
+        );
+
+        effects.push({
+            type: "planet-destroyed",
+            x: planet.x,
+            y: planet.y,
+            life: 2,
+            maxLife: 2
+        });
+
+        setTimeout(() => {
+
+            if (!running) return;
+
+            createNewPlanet();
+
+        }, 1800);
+    }
+}
+
+
+// --------------------------------------------------
+// UPDATE
+// --------------------------------------------------
+
+function updatePlanetMode(deltaTime = 1 / 60) {
+
+    if (!running || paused) {
+        return;
     }
 
-    mysteryEffects = mysteryEffects.filter(
-        effect => effect.life > 0
-    );
-}
-
-function updateEffects(deltaTime) {
-    for (const effect of effects) {
-        effect.life -= deltaTime;
-    }
-
-    effects = effects.filter(
-        effect => effect.life > 0
-    );
-}
-
-export function updatePlanetMode(deltaTime) {
-    if (!running || !planet) {
+    if (!planet) {
         return;
     }
 
@@ -611,198 +669,159 @@ export function updatePlanetMode(deltaTime) {
         deltaTime
     );
 
-    updateAlienShips(deltaTime);
-    updateMysteryEffects(deltaTime);
-    updateEffects(deltaTime);
+    // Update asteroids
+    for (let i = effects.length - 1; i >= 0; i--) {
 
-    try {
-        updateParticles(deltaTime);
-    } catch (error) {
-        // Particle effects are optional.
-    }
-}
+        const effect = effects[i];
 
-function drawLaserEffect(effect) {
-    const progress =
-        1 - effect.life / effect.maxLife;
+        if (effect.type === "asteroid") {
 
-    const radius =
-        8 + progress * 28;
+            const asteroid =
+                effect.object;
 
-    ctx.save();
+            updateAsteroid(
+                asteroid,
+                deltaTime
+            );
 
-    ctx.globalAlpha =
-        Math.max(0, effect.life / effect.maxLife);
+            asteroid.life -= deltaTime;
 
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
+            const dx =
+                asteroid.x - planet.x;
 
-    ctx.beginPath();
-    ctx.arc(
-        effect.x,
-        effect.y,
-        radius,
-        0,
-        Math.PI * 2
-    );
+            const dy =
+                asteroid.y - planet.y;
 
-    ctx.stroke();
+            const distance =
+                Math.sqrt(dx * dx + dy * dy);
 
-    ctx.restore();
-}
+            if (
+                distance <
+                planet.radius + asteroid.radius
+            ) {
 
-function drawIceEffect(effect) {
-    const progress =
-        1 - effect.life / effect.maxLife;
+                damagePlanet(
+                    planet,
+                    WEAPONS.asteroid.damage
+                );
 
-    const radius =
-        10 + progress * 35;
+                createExplosion(
+                    planet.x,
+                    planet.y,
+                    40
+                );
 
-    ctx.save();
+                effect.life = 0;
 
-    ctx.globalAlpha =
-        Math.max(0, effect.life / effect.maxLife);
+                checkPlanetDestroyed();
+            }
 
-    ctx.strokeStyle = "#9eeaff";
-    ctx.lineWidth = 4;
+            if (asteroid.life <= 0) {
+                effect.life = 0;
+            }
+        }
 
-    ctx.beginPath();
-    ctx.arc(
-        effect.x,
-        effect.y,
-        radius,
-        0,
-        Math.PI * 2
-    );
+        if (
+            effect.type === "laser" ||
+            effect.type === "ice"
+        ) {
+            effect.life -= deltaTime;
 
-    ctx.stroke();
+            if (effect.life <= 0) {
+                effects.splice(i, 1);
+            }
+        }
 
-    ctx.restore();
-}
+        if (effect.type === "planet-destroyed") {
+            effect.life -= deltaTime;
 
-function drawAntimatterEffectVisual(effect) {
-    const progress =
-        1 - effect.life / effect.maxLife;
-
-    const radius =
-        15 + progress * 80;
-
-    ctx.save();
-
-    ctx.globalAlpha =
-        Math.max(0, effect.life / effect.maxLife);
-
-    ctx.strokeStyle = "#d9a3ff";
-    ctx.lineWidth = 5;
-
-    ctx.beginPath();
-
-    ctx.arc(
-        effect.x,
-        effect.y,
-        radius,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.stroke();
-
-    ctx.restore();
-}
-
-function drawMysteryEffect(effect) {
-    const progress =
-        1 - effect.life / effect.maxLife;
-
-    const radius =
-        10 + progress * 35;
-
-    ctx.save();
-
-    ctx.globalAlpha =
-        Math.max(0, effect.life / effect.maxLife);
-
-    ctx.strokeStyle = "#c58cff";
-    ctx.lineWidth = 3;
-
-    ctx.beginPath();
-
-    ctx.arc(
-        effect.x,
-        effect.y,
-        radius,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.stroke();
-
-    ctx.restore();
-}
-
-function drawAlienShip(ship) {
-    const object = ship.object;
-
-    if (!object) {
-        return;
+            if (effect.life <= 0) {
+                effects.splice(i, 1);
+            }
+        }
     }
 
-    ctx.save();
+    // Remove dead asteroid effects
+    effects = effects.filter(effect => {
+        if (effect.type !== "asteroid") {
+            return true;
+        }
 
-    ctx.translate(
-        object.x,
-        object.y
-    );
-
-    ctx.rotate(object.angle || 0);
-
-    ctx.beginPath();
-
-    ctx.moveTo(22, 0);
-    ctx.lineTo(-14, -10);
-    ctx.lineTo(-8, 0);
-    ctx.lineTo(-14, 10);
-    ctx.closePath();
-
-    ctx.fillStyle = "#8fb7c8";
-    ctx.fill();
-
-    ctx.strokeStyle = "#d7f4ff";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.beginPath();
-
-    ctx.arc(
-        2,
-        0,
-        5,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fillStyle = "#7fe7ff";
-    ctx.fill();
-
-    ctx.restore();
-}
-
-function drawIncomingAsteroid(entry) {
-    if (!entry.object) {
-        return;
-    }
-
-    try {
-        drawAsteroid(
-            ctx,
-            entry.object
+        return (
+            effect.object &&
+            effect.object.life > 0
         );
-    } catch (error) {
-        // Asteroid rendering is optional.
+    });
+
+    // Alien ships
+    for (
+        let i = alienShips.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const ship =
+            alienShips[i];
+
+        ship.x += ship.vx * deltaTime;
+        ship.y += ship.vy * deltaTime;
+
+        ship.life -= deltaTime;
+
+        const dx =
+            ship.x - planet.x;
+
+        const dy =
+            ship.y - planet.y;
+
+        const distance =
+            Math.sqrt(dx * dx + dy * dy);
+
+        if (
+            distance <
+            planet.radius + ship.radius
+        ) {
+
+            damagePlanet(
+                planet,
+                WEAPONS.alien.damage
+            );
+
+            createExplosion(
+                planet.x,
+                planet.y,
+                35
+            );
+
+            alienShips.splice(i, 1);
+
+            checkPlanetDestroyed();
+
+            continue;
+        }
+
+        if (
+            ship.life <= 0 ||
+            ship.x > canvas.width + 100 ||
+            ship.y < -100 ||
+            ship.y > canvas.height + 100
+        ) {
+            alienShips.splice(i, 1);
+        }
     }
+
+    updateParticles(
+        deltaTime
+    );
 }
 
-export function drawPlanetMode() {
+
+// --------------------------------------------------
+// DRAW
+// --------------------------------------------------
+
+function drawPlanetMode() {
+
     if (!ctx || !canvas) {
         return;
     }
@@ -814,76 +833,52 @@ export function drawPlanetMode() {
         canvas.height
     );
 
-    drawBackground();
+    // Space background
+    drawSpaceBackground();
 
+    // Planet
     if (planet) {
-        try {
-            drawPlanet(
-                ctx,
-                planet
-            );
-        } catch (error) {
-            // Planet rendering is handled by the object module.
-        }
-    }
-
-    for (const entry of alienShips) {
-        if (
-            entry.type ===
-            "incoming-asteroid"
-        ) {
-            drawIncomingAsteroid(entry);
-        } else {
-            drawAlienShip(entry);
-        }
-    }
-
-    for (const effect of effects) {
-        if (effect.type === "laser") {
-            drawLaserEffect(effect);
-        } else if (effect.type === "ice") {
-            drawIceEffect(effect);
-        } else if (effect.type === "antimatter") {
-            drawAntimatterEffectVisual(effect);
-        }
-    }
-
-    for (const effect of mysteryEffects) {
-        drawMysteryEffect(effect);
-    }
-
-    try {
-        drawParticles(
-            ctx
+        drawPlanet(
+            ctx,
+            planet
         );
-    } catch (error) {
-        // Particle rendering is optional.
     }
 
-    drawPlanetHUD();
+    // Asteroids
+    for (const effect of effects) {
+
+        if (
+            effect.type === "asteroid" &&
+            effect.object
+        ) {
+            drawAsteroid(
+                ctx,
+                effect.object
+            );
+        }
+    }
+
+    // Alien ships
+    drawAlienShips();
+
+    // Laser effects
+    drawWeaponEffects();
+
+    // Particles
+    drawParticles(ctx);
+
+    // HUD
+    drawHUD();
 }
 
-function drawBackground() {
-    const gradient = ctx.createRadialGradient(
-        canvas.width / 2,
-        canvas.height / 2,
-        0,
-        canvas.width / 2,
-        canvas.height / 2,
-        Math.max(canvas.width, canvas.height)
-    );
 
-    gradient.addColorStop(
-        0,
-        "#111a2b"
-    );
+// --------------------------------------------------
+// BACKGROUND
+// --------------------------------------------------
 
-    gradient.addColorStop(
-        1,
-        "#02030a"
-    );
+function drawSpaceBackground() {
 
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = "#02040a";
 
     ctx.fillRect(
         0,
@@ -892,27 +887,24 @@ function drawBackground() {
         canvas.height
     );
 
-    drawStars();
-}
-
-function drawStars() {
+    // Stars
     ctx.save();
 
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillStyle = "#ffffff";
 
-    const count = 140;
+    for (let i = 0; i < 100; i++) {
 
-    for (let i = 0; i < count; i++) {
         const x =
-            (i * 997) %
-            canvas.width;
+            (i * 83) % canvas.width;
 
         const y =
-            (i * 577) %
-            canvas.height;
+            (i * 47) % canvas.height;
 
         const size =
-            ((i * 17) % 3) + 1;
+            i % 7 === 0 ? 2 : 1;
+
+        ctx.globalAlpha =
+            0.3 + ((i % 5) / 10);
 
         ctx.fillRect(
             x,
@@ -925,31 +917,149 @@ function drawStars() {
     ctx.restore();
 }
 
-function drawPlanetHUD() {
-    if (!planet) {
-        return;
+
+// --------------------------------------------------
+// WEAPON EFFECTS
+// --------------------------------------------------
+
+function drawWeaponEffects() {
+
+    for (const effect of effects) {
+
+        if (
+            effect.type !== "laser" &&
+            effect.type !== "ice"
+        ) {
+            continue;
+        }
+
+        const alpha =
+            Math.max(
+                0,
+                effect.life / effect.maxLife
+            );
+
+        ctx.save();
+
+        ctx.globalAlpha = alpha;
+
+        ctx.lineWidth =
+            effect.type === "laser"
+                ? 5
+                : 8;
+
+        ctx.strokeStyle =
+            effect.type === "laser"
+                ? "#ff3030"
+                : "#80dfff";
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            effect.x1,
+            effect.y1
+        );
+
+        ctx.lineTo(
+            effect.x2,
+            effect.y2
+        );
+
+        ctx.stroke();
+
+        ctx.restore();
     }
+}
+
+
+// --------------------------------------------------
+// ALIEN SHIPS
+// --------------------------------------------------
+
+function drawAlienShips() {
+
+    for (const ship of alienShips) {
+
+        ctx.save();
+
+        ctx.translate(
+            ship.x,
+            ship.y
+        );
+
+        ctx.fillStyle =
+            "#8f8f9f";
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            -18,
+            5
+        );
+
+        ctx.lineTo(
+            0,
+            -8
+        );
+
+        ctx.lineTo(
+            18,
+            5
+        );
+
+        ctx.lineTo(
+            0,
+            3
+        );
+
+        ctx.closePath();
+
+        ctx.fill();
+
+        ctx.fillStyle =
+            "#36ffcc";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            0,
+            1,
+            5,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+
+// --------------------------------------------------
+// HUD
+// --------------------------------------------------
+
+function drawHUD() {
+
+    if (!planet) return;
 
     const health =
         Math.max(
             0,
-            Math.min(
-                1,
-                planet.health /
-                planet.maxHealth
-            )
+            getPlanetHealth(planet)
         );
 
     ctx.save();
 
     ctx.fillStyle =
-        "rgba(0,0,0,0.55)";
+        "rgba(0,0,0,0.65)";
 
     ctx.fillRect(
         20,
         20,
-        250,
-        72
+        260,
+        75
     );
 
     ctx.fillStyle =
@@ -961,155 +1071,119 @@ function drawPlanetHUD() {
     ctx.fillText(
         "PLANET MODE",
         35,
-        46
+        47
     );
 
     ctx.font =
         "14px Arial";
 
     ctx.fillText(
-        `Weapon: ${WEAPONS[weapon].name}`,
+        `WEAPON: ${WEAPONS[selectedWeapon].name}`,
         35,
-        68
+        70
     );
 
-    ctx.fillStyle =
-        "rgba(255,255,255,0.2)";
-
-    ctx.fillRect(
+    ctx.fillText(
+        `HEALTH: ${Math.round(health)}%`,
         35,
-        78,
-        210,
-        7
-    );
-
-    ctx.fillStyle =
-        "#55e68a";
-
-    ctx.fillRect(
-        35,
-        78,
-        210 * health,
-        7
+        88
     );
 
     ctx.restore();
 }
 
-function setupPlanetModeControls() {
-    const weaponButtons =
-        document.querySelectorAll(
-            "[data-planet-weapon]"
-        );
 
-    weaponButtons.forEach(button => {
-        if (button.dataset.planetModeBound) {
-            return;
-        }
+// --------------------------------------------------
+// PAUSE
+// --------------------------------------------------
 
-        button.dataset.planetModeBound =
-            "true";
-
-        button.addEventListener(
-            "click",
-            () => {
-                const selected =
-                    button.dataset.planetWeapon;
-
-                setPlanetWeapon(selected);
-            }
-        );
-    });
-
-    if (canvas.dataset.planetModeBound) {
-        return;
-    }
-
-    canvas.dataset.planetModeBound =
-        "true";
-
-    canvas.addEventListener(
-        "click",
-        () => {
-            usePlanetWeapon();
-        }
-    );
+function setPlanetModePaused(value) {
+    paused = Boolean(value);
 }
 
-function updateWeaponUI() {
-    const buttons =
-        document.querySelectorAll(
-            "[data-planet-weapon]"
-        );
-
-    buttons.forEach(button => {
-        const active =
-            button.dataset.planetWeapon ===
-            weapon;
-
-        button.classList.toggle(
-            "active",
-            active
-        );
-
-        button.setAttribute(
-            "aria-pressed",
-            active ? "true" : "false"
-        );
-    });
+function togglePlanetModePause() {
+    paused = !paused;
+    return paused;
 }
 
-export function resetPlanetMode() {
-    if (!canvas) {
-        return;
-    }
 
-    createPlanetModeWorld();
+// --------------------------------------------------
+// RESET
+// --------------------------------------------------
 
-    weapon = "laser";
-    lastShotTime = 0;
+function resetPlanetMode() {
 
-    updateCooldown();
-    updateWeaponUI();
+    clearParticles();
+
+    effects = [];
+    alienShips = [];
+    projectiles = [];
+
+    createNewPlanet();
 }
 
-export function getPlanetHealth() {
-    if (!planet) {
-        return 0;
-    }
 
-    return planet.health;
-}
+// --------------------------------------------------
+// GET STATE
+// --------------------------------------------------
 
-export function isPlanetDestroyed() {
-    return (
-        planet !== null &&
-        planet.health <= 0
-    );
-}
+function getPlanetMode() {
 
-export function healCurrentPlanet(amount = 100) {
-    if (!planet) {
-        return false;
-    }
-
-    healPlanet(
+    return {
+        running,
+        paused,
+        selectedWeapon,
         planet,
-        amount
-    );
-
-    return true;
+        effects,
+        alienShips
+    };
 }
 
-export function damageCurrentPlanet(amount = 10) {
-    if (!planet) {
-        return false;
-    }
 
-    damagePlanet(
-        planet,
-        amount
-    );
+// --------------------------------------------------
+// HELPERS
+// --------------------------------------------------
 
-    return true;
+function getCurrentPlanet() {
+    return planet;
 }
+
+function getSelectedWeapon() {
+    return selectedWeapon;
+}
+
+function isPlanetModeRunning() {
+    return running;
+}
+
+function isPlanetModePaused() {
+    return paused;
+}
+
+
+// --------------------------------------------------
+// EXPORTS
+// --------------------------------------------------
+
+export {
+    startPlanetMode,
+    stopPlanetMode,
+
+    usePlanetWeapon,
+    selectWeapon,
+
+    updatePlanetMode,
+    drawPlanetMode,
+
+    setPlanetModePaused,
+    togglePlanetModePause,
+
+    resetPlanetMode,
+
+    getPlanetMode,
+    getCurrentPlanet,
+    getSelectedWeapon,
+
+    isPlanetModeRunning,
+    isPlanetModePaused
+};
