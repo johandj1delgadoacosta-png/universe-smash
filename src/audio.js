@@ -1,15 +1,16 @@
 // Universe Smash - Audio System
-// Safe Web Audio system with user-gesture activation
+// Audio starts only after a real user interaction.
 
 let audioContext = null;
 let masterGain = null;
+
 let audioEnabled = true;
 let masterVolume = 0.45;
 let initialized = false;
 let userGestureReceived = false;
 
 // --------------------------------------------------
-// AUDIO INITIALIZATION
+// CREATE AUDIO CONTEXT
 // --------------------------------------------------
 
 function createAudioContext() {
@@ -17,16 +18,16 @@ function createAudioContext() {
         return audioContext;
     }
 
+    const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) {
+        console.warn("Web Audio API is not supported.");
+        audioEnabled = false;
+        return null;
+    }
+
     try {
-        const AudioContextClass =
-            window.AudioContext || window.webkitAudioContext;
-
-        if (!AudioContextClass) {
-            console.warn("Web Audio API is not supported.");
-            audioEnabled = false;
-            return null;
-        }
-
         audioContext = new AudioContextClass();
 
         masterGain = audioContext.createGain();
@@ -38,28 +39,33 @@ function createAudioContext() {
         return audioContext;
     } catch (error) {
         console.warn("Could not create AudioContext:", error);
-        audioEnabled = false;
         return null;
     }
 }
 
 // --------------------------------------------------
-// INITIALIZE AUDIO
+// INITIALIZE
 // --------------------------------------------------
 
 function initAudio() {
-    if (initialized) {
-        return audioContext;
+    // IMPORTANT:
+    // Do not resume audio here.
+    // Chrome requires a user gesture first.
+
+    if (!audioContext) {
+        createAudioContext();
     }
 
-    return createAudioContext();
+    return audioContext;
 }
 
 // --------------------------------------------------
 // USER GESTURE
 // --------------------------------------------------
 
-async function resumeAudio() {
+async function activateAudio() {
+    userGestureReceived = true;
+
     if (!audioEnabled) {
         return false;
     }
@@ -77,39 +83,56 @@ async function resumeAudio() {
             await audioContext.resume();
         }
 
-        userGestureReceived = true;
-
         return audioContext.state === "running";
     } catch (error) {
-        console.warn("Unable to resume AudioContext:", error);
+        console.warn("Audio activation failed:", error);
         return false;
     }
 }
 
-// Automatically resume when the game receives a user gesture.
+// --------------------------------------------------
+// RESUME AUDIO
+// --------------------------------------------------
+
+async function resumeAudio() {
+    // NEVER attempt to resume before a user gesture.
+    if (!userGestureReceived) {
+        return false;
+    }
+
+    return activateAudio();
+}
+
+// --------------------------------------------------
+// USER INTERACTION LISTENERS
+// --------------------------------------------------
+
 function setupUserGestureAudio() {
-    const activateAudio = () => {
-        userGestureReceived = true;
-        resumeAudio();
+    const handlePointer = () => {
+        activateAudio();
+    };
+
+    const handleKeyboard = () => {
+        activateAudio();
     };
 
     window.addEventListener(
-        "universe-smash-user-gesture",
-        activateAudio,
-        { passive: true }
-    );
-
-    // These listeners only activate audio after a real user action.
-    window.addEventListener(
         "pointerdown",
-        activateAudio,
-        { passive: true, once: false }
+        handlePointer,
+        { passive: true }
     );
 
     window.addEventListener(
         "keydown",
-        activateAudio,
-        { passive: true, once: false }
+        handleKeyboard,
+        { passive: true }
+    );
+
+    // Custom event used by Universe Smash startup.
+    window.addEventListener(
+        "universe-smash-user-gesture",
+        handlePointer,
+        { passive: true }
     );
 }
 
@@ -120,12 +143,8 @@ function setupUserGestureAudio() {
 function enableAudio() {
     audioEnabled = true;
 
-    if (!audioContext) {
-        createAudioContext();
-    }
-
     if (userGestureReceived) {
-        resumeAudio();
+        activateAudio();
     }
 }
 
@@ -142,9 +161,12 @@ function isAudioEnabled() {
 // --------------------------------------------------
 
 function setMasterVolume(value) {
-    masterVolume = Math.max(0, Math.min(1, Number(value) || 0));
+    masterVolume = Math.max(
+        0,
+        Math.min(1, Number(value) || 0)
+    );
 
-    if (masterGain) {
+    if (masterGain && audioContext) {
         masterGain.gain.setTargetAtTime(
             masterVolume,
             audioContext.currentTime,
@@ -158,11 +180,15 @@ function getMasterVolume() {
 }
 
 // --------------------------------------------------
-// INTERNAL HELPERS
+// CHECK IF SOUND CAN PLAY
 // --------------------------------------------------
 
 function canPlaySound() {
     if (!audioEnabled) {
+        return false;
+    }
+
+    if (!userGestureReceived) {
         return false;
     }
 
@@ -176,6 +202,10 @@ function canPlaySound() {
 
     return true;
 }
+
+// --------------------------------------------------
+// TONE
+// --------------------------------------------------
 
 function playTone(
     frequency,
@@ -192,6 +222,7 @@ function playTone(
     const gain = audioContext.createGain();
 
     oscillator.type = type;
+
     oscillator.frequency.setValueAtTime(
         frequency,
         audioContext.currentTime
@@ -225,9 +256,13 @@ function playTone(
     oscillator.start();
 
     oscillator.stop(
-        audioContext.currentTime + duration + 0.02
+        audioContext.currentTime + duration + 0.03
     );
 }
+
+// --------------------------------------------------
+// NOISE
+// --------------------------------------------------
 
 function playNoise(
     duration = 0.2,
@@ -280,12 +315,12 @@ function playNoise(
     source.start();
 
     source.stop(
-        audioContext.currentTime + duration + 0.02
+        audioContext.currentTime + duration + 0.03
     );
 }
 
 // --------------------------------------------------
-// MENU SOUNDS
+// MENU
 // --------------------------------------------------
 
 function playClickSound() {
@@ -301,7 +336,7 @@ function playSelectSound() {
 }
 
 // --------------------------------------------------
-// WEAPON SOUNDS
+// PLANET MODE WEAPONS
 // --------------------------------------------------
 
 function playLaserSound() {
@@ -328,8 +363,7 @@ function playAntimatterSound() {
     playTone(180, 0.5, "triangle", 0.1, 35);
 }
 
-// Backwards-compatible name.
-// Older planet-mode.js files can use playAntimatter.
+// Compatibility with older planet-mode.js
 function playAntimatter(...args) {
     return playAntimatterSound(...args);
 }
@@ -364,7 +398,7 @@ function playMysterySound() {
 }
 
 // --------------------------------------------------
-// COSMIC OBJECT SOUNDS
+// COSMIC OBJECTS
 // --------------------------------------------------
 
 function playBlackHoleSound() {
@@ -391,26 +425,19 @@ function playPauseSound() {
 }
 
 // --------------------------------------------------
-// SOUND CLEANUP
+// CLEANUP
 // --------------------------------------------------
 
 function stopAllSounds() {
-    // Short synthesized sounds naturally end on their own.
-    // This function exists for compatibility with the game.
+    // Synthesized sounds automatically stop.
 }
 
-// --------------------------------------------------
-// DEFAULT SOUND LOADING
-// --------------------------------------------------
-
 function loadDefaultSounds() {
-    // The game uses Web Audio synthesis,
-    // so external sound files are not required.
     return true;
 }
 
 // --------------------------------------------------
-// AUDIO STATE
+// STATE
 // --------------------------------------------------
 
 function getAudioState() {
@@ -448,7 +475,7 @@ async function destroyAudio() {
 }
 
 // --------------------------------------------------
-// GLOBAL ACCESS
+// GLOBAL API
 // --------------------------------------------------
 
 window.UniverseSmashAudio = {
@@ -459,6 +486,7 @@ window.UniverseSmashAudio = {
     setMasterVolume,
     getMasterVolume,
     resumeAudio,
+    activateAudio,
 
     playClickSound,
     playMenuSelect,
@@ -467,12 +495,10 @@ window.UniverseSmashAudio = {
     playAsteroidImpact,
     playExplosionSound,
     playAntimatterSound,
-
-    // Compatibility alias
     playAntimatter,
-
     playAlienSound,
     playMysterySound,
+
     playBlackHoleSound,
     playWormholeSound,
     playGreyHoleSound,
@@ -487,7 +513,7 @@ window.UniverseSmashAudio = {
 };
 
 // --------------------------------------------------
-// STARTUP
+// SETUP
 // --------------------------------------------------
 
 setupUserGestureAudio();
@@ -504,6 +530,7 @@ export {
     setMasterVolume,
     getMasterVolume,
     resumeAudio,
+    activateAudio,
 
     playClickSound,
     playMenuSelect,
@@ -512,12 +539,10 @@ export {
     playAsteroidImpact,
     playExplosionSound,
     playAntimatterSound,
-
-    // Compatibility alias
     playAntimatter,
-
     playAlienSound,
     playMysterySound,
+
     playBlackHoleSound,
     playWormholeSound,
     playGreyHoleSound,
