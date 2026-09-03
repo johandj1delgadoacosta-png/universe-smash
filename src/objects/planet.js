@@ -1,248 +1,374 @@
-// ============================================
-// UNIVERSE SMASH
-// Planet Object
-// ============================================
+// ============================================================
+// UNIVERSE SMASH - PLANET OBJECT
+// ============================================================
 
-export function createPlanet(x = 0, y = 0, options = {}) {
-    return {
-        type: "planet",
-
-        x,
-        y,
-
-        radius: options.radius ?? 30,
-        mass: options.mass ?? 5.972e15,
-
-        vx: options.vx ?? 0,
-        vy: options.vy ?? 0,
-
-        rotation: options.rotation ?? 0,
-        rotationSpeed: options.rotationSpeed ?? 0.005,
-
-        color: options.color ?? "#4d8cff",
-        secondaryColor: options.secondaryColor ?? "#36b56e",
-
-        atmosphere: options.atmosphere ?? true,
-        atmosphereStrength: options.atmosphereStrength ?? 0.7,
-
-        destroyed: false,
-
-        health: options.health ?? 100,
-        maxHealth: options.maxHealth ?? 100,
-
-        age: 0,
-
-        temperature: options.temperature ?? 1,
-
-        rings: options.rings ?? false,
-
-        ringColor: options.ringColor ?? "#c9b58a"
-    };
+function finite(value, fallback = 0) {
+    return Number.isFinite(Number(value))
+        ? Number(value)
+        : fallback;
 }
 
 
-// ============================================
-// UPDATE PLANET
-// ============================================
+// ============================================================
+// CREATE PLANET
+// ============================================================
 
-export function updatePlanet(planet, deltaTime = 1) {
-    if (!planet || planet.destroyed) {
+export function createPlanet(options = {}) {
+
+    const planet = {
+
+        type: "planet",
+
+        x: finite(
+            options.x,
+            0
+        ),
+
+        y: finite(
+            options.y,
+            0
+        ),
+
+        radius: Math.max(
+            5,
+            finite(
+                options.radius,
+                80
+            )
+        ),
+
+        mass: Math.max(
+            1,
+            finite(
+                options.mass,
+                1000
+            )
+        ),
+
+        vx: finite(
+            options.vx,
+            0
+        ),
+
+        vy: finite(
+            options.vy,
+            0
+        ),
+
+        rotation: finite(
+            options.rotation,
+            0
+        ),
+
+        rotationSpeed: finite(
+            options.rotationSpeed,
+            0.15
+        ),
+
+        health: Math.max(
+            1,
+            finite(
+                options.health,
+                100
+            )
+        ),
+
+        maxHealth: Math.max(
+            1,
+            finite(
+                options.maxHealth,
+                100
+            )
+        ),
+
+        temperature: finite(
+            options.temperature,
+            288
+        ),
+
+        atmosphere:
+            options.atmosphere !== false,
+
+        rings:
+            options.rings === true,
+
+        color:
+            options.color ||
+            "#3d79b8",
+
+        secondaryColor:
+            options.secondaryColor ||
+            "#6fa8dc",
+
+        atmosphereColor:
+            options.atmosphereColor ||
+            "#65b7ff",
+
+        ringColor:
+            options.ringColor ||
+            "#b7a98c",
+
+        name:
+            options.name ||
+            "Planet",
+
+        destroyed: false
+
+    };
+
+    return planet;
+}
+
+
+// ============================================================
+// UPDATE PLANET
+// ============================================================
+
+export function updatePlanet(
+    planet,
+    deltaTime = 0.016
+) {
+
+    if (!planet) {
         return;
     }
 
-    planet.age += deltaTime;
+    const dt = Math.max(
+        0,
+        Math.min(
+            0.1,
+            finite(deltaTime, 0.016)
+        )
+    );
 
-    planet.x += planet.vx * deltaTime;
-    planet.y += planet.vy * deltaTime;
+    planet.x =
+        finite(planet.x, 0) +
+        finite(planet.vx, 0) * dt;
 
-    planet.rotation +=
-        planet.rotationSpeed * deltaTime;
+    planet.y =
+        finite(planet.y, 0) +
+        finite(planet.vy, 0) * dt;
 
-    if (planet.health < 0) {
-        planet.health = 0;
-    }
+    planet.rotation =
+        finite(planet.rotation, 0) +
+        finite(planet.rotationSpeed, 0) * dt;
 
-    if (planet.health > planet.maxHealth) {
-        planet.health = planet.maxHealth;
-    }
+    planet.vx =
+        finite(planet.vx, 0);
 
-    if (planet.temperature < 0) {
-        planet.temperature = 0;
-    }
+    planet.vy =
+        finite(planet.vy, 0);
 
-    // A planet disappears when its health reaches zero.
-    if (planet.health <= 0) {
-        planet.destroyed = true;
-    }
+    planet.radius =
+        Math.max(
+            5,
+            finite(
+                planet.radius,
+                80
+            )
+        );
+
+    planet.mass =
+        Math.max(
+            1,
+            finite(
+                planet.mass,
+                1000
+            )
+        );
+
+    planet.health =
+        Math.max(
+            0,
+            finite(
+                planet.health,
+                100
+            )
+        );
+
+    planet.maxHealth =
+        Math.max(
+            1,
+            finite(
+                planet.maxHealth,
+                100
+            )
+        );
 }
 
 
-// ============================================
+// ============================================================
 // DRAW PLANET
-// ============================================
+// ============================================================
 
 export function drawPlanet(
     ctx,
-    planet,
-    camera = null
+    planet
 ) {
-    if (!ctx || !planet || planet.destroyed) {
+
+    if (!ctx || !planet) {
         return;
     }
 
-    let screenX = planet.x;
-    let screenY = planet.y;
-    let radius = planet.radius;
+    // --------------------------------------------------------
+    // SANITIZE ALL VALUES BEFORE CANVAS OPERATIONS
+    // --------------------------------------------------------
 
-    if (camera) {
-        if (
-            typeof camera.worldToScreen ===
-            "function"
-        ) {
-            const position =
-                camera.worldToScreen(
-                    planet.x,
-                    planet.y
-                );
+    const x = finite(
+        planet.x,
+        ctx.canvas.width / 2
+    );
 
-            screenX = position.x;
-            screenY = position.y;
+    const y = finite(
+        planet.y,
+        ctx.canvas.height / 2
+    );
 
-            radius *= camera.zoom ?? 1;
-        } else {
-            const zoom =
-                camera.zoom ?? 1;
+    const radius = Math.max(
+        5,
+        finite(
+            planet.radius,
+            80
+        )
+    );
 
-            screenX =
-                (planet.x - camera.x) *
-                    zoom +
-                ctx.canvas.width / 2;
+    const rotation = finite(
+        planet.rotation,
+        0
+    );
 
-            screenY =
-                (planet.y - camera.y) *
-                    zoom +
-                ctx.canvas.height / 2;
-
-            radius *= zoom;
-        }
-    }
-
-    if (radius <= 0) {
-        return;
-    }
+    // --------------------------------------------------------
+    // SAVE CANVAS STATE
+    // --------------------------------------------------------
 
     ctx.save();
 
-    // ----------------------------------------
-    // Atmosphere glow
-    // ----------------------------------------
+    // --------------------------------------------------------
+    // RINGS
+    // --------------------------------------------------------
 
-    if (planet.atmosphere) {
-        const atmosphereRadius =
-            radius *
-            (1.15 +
-                planet.atmosphereStrength *
-                    0.15);
+    if (planet.rings === true) {
 
-        const atmosphere =
-            ctx.createRadialGradient(
-                screenX,
-                screenY,
-                radius * 0.7,
-                screenX,
-                screenY,
-                atmosphereRadius
-            );
+        ctx.save();
 
-        atmosphere.addColorStop(
-            0,
-            "rgba(100,180,255,0)"
+        ctx.translate(
+            x,
+            y
         );
 
-        atmosphere.addColorStop(
-            0.75,
-            "rgba(100,190,255,0.12)"
+        ctx.rotate(
+            -0.25
         );
-
-        atmosphere.addColorStop(
-            1,
-            "rgba(100,190,255,0)"
-        );
-
-        ctx.fillStyle = atmosphere;
 
         ctx.beginPath();
 
-        ctx.arc(
-            screenX,
-            screenY,
-            atmosphereRadius,
+        ctx.ellipse(
+            0,
+            0,
+            radius * 1.65,
+            radius * 0.42,
+            0,
             0,
             Math.PI * 2
         );
 
-        ctx.fill();
+        ctx.strokeStyle =
+            planet.ringColor ||
+            "#b7a98c";
+
+        ctx.globalAlpha = 0.65;
+
+        ctx.lineWidth =
+            Math.max(
+                2,
+                radius * 0.08
+            );
+
+        ctx.stroke();
+
+        ctx.restore();
     }
 
-    // ----------------------------------------
-    // Planet body
-    // ----------------------------------------
-
-    const planetGradient =
-        ctx.createRadialGradient(
-            screenX - radius * 0.35,
-            screenY - radius * 0.35,
-            radius * 0.08,
-            screenX,
-            screenY,
-            radius
-        );
-
-    planetGradient.addColorStop(
-        0,
-        "#d9f2ff"
-    );
-
-    planetGradient.addColorStop(
-        0.2,
-        planet.color
-    );
-
-    planetGradient.addColorStop(
-        0.65,
-        planet.secondaryColor
-    );
-
-    planetGradient.addColorStop(
-        1,
-        "#142b55"
-    );
-
-    ctx.fillStyle = planetGradient;
+    // --------------------------------------------------------
+    // PLANET SHADOW / BASE
+    // --------------------------------------------------------
 
     ctx.beginPath();
 
     ctx.arc(
-        screenX,
-        screenY,
+        x,
+        y,
         radius,
         0,
         Math.PI * 2
     );
 
+    ctx.fillStyle =
+        planet.color ||
+        "#3d79b8";
+
     ctx.fill();
 
-    // ----------------------------------------
-    // Surface details
-    // ----------------------------------------
+    // --------------------------------------------------------
+    // PLANET GRADIENT
+    // --------------------------------------------------------
+
+    const gradient = ctx.createRadialGradient(
+        x - radius * 0.35,
+        y - radius * 0.40,
+        Math.max(
+            1,
+            radius * 0.08
+        ),
+
+        x,
+        y,
+        radius
+    );
+
+    gradient.addColorStop(
+        0,
+        planet.secondaryColor ||
+        "#8cc7ff"
+    );
+
+    gradient.addColorStop(
+        0.45,
+        planet.color ||
+        "#3d79b8"
+    );
+
+    gradient.addColorStop(
+        1,
+        "#081321"
+    );
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x,
+        y,
+        radius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle =
+        gradient;
+
+    ctx.fill();
+
+    // --------------------------------------------------------
+    // SURFACE DETAILS
+    // --------------------------------------------------------
 
     ctx.save();
 
     ctx.beginPath();
 
     ctx.arc(
-        screenX,
-        screenY,
+        x,
+        y,
         radius,
         0,
         Math.PI * 2
@@ -250,311 +376,407 @@ export function drawPlanet(
 
     ctx.clip();
 
-    ctx.translate(
-        screenX,
-        screenY
-    );
+    const patchCount = 8;
 
-    ctx.rotate(
-        planet.rotation
-    );
+    for (
+        let i = 0;
+        i < patchCount;
+        i++
+    ) {
 
-    // Continents / surface patches
-    ctx.fillStyle =
-        "rgba(40,120,70,0.55)";
-
-    for (let i = 0; i < 6; i++) {
         const angle =
-            i * 1.7;
+            rotation +
+            i * 2.399;
 
         const distance =
-            radius * 0.35;
+            radius * (
+                0.25 +
+                (i % 3) * 0.18
+            );
 
-        const patchX =
+        const px =
+            x +
             Math.cos(angle) *
             distance;
 
-        const patchY =
+        const py =
+            y +
             Math.sin(angle) *
             distance;
 
+        const patchRadius =
+            radius *
+            (0.08 + (i % 3) * 0.025);
+
         ctx.beginPath();
 
-        ctx.ellipse(
-            patchX,
-            patchY,
-            radius * 0.25,
-            radius * 0.12,
-            angle,
+        ctx.arc(
+            px,
+            py,
+            patchRadius,
             0,
             Math.PI * 2
         );
+
+        ctx.fillStyle =
+            i % 2 === 0
+                ? "rgba(35,90,55,0.30)"
+                : "rgba(210,220,170,0.18)";
 
         ctx.fill();
     }
 
-    // ----------------------------------------
-    // Cloud bands
-    // ----------------------------------------
+    // --------------------------------------------------------
+    // CLOUD BANDS
+    // --------------------------------------------------------
 
-    ctx.strokeStyle =
-        "rgba(255,255,255,0.18)";
+    ctx.globalAlpha = 0.18;
 
-    ctx.lineWidth =
-        Math.max(
-            1,
-            radius * 0.04
-        );
+    for (
+        let i = -2;
+        i <= 2;
+        i++
+    ) {
 
-    for (let i = -1; i <= 1; i++) {
+        const bandY =
+            y +
+            i * radius * 0.28;
+
         ctx.beginPath();
 
         ctx.ellipse(
-            0,
-            i * radius * 0.35,
+            x,
+            bandY,
             radius * 0.9,
-            radius * 0.12,
-            0,
+            radius * 0.08,
+            rotation * 0.15,
             0,
             Math.PI * 2
         );
 
-        ctx.stroke();
+        ctx.fillStyle =
+            "#ffffff";
+
+        ctx.fill();
     }
 
     ctx.restore();
 
-    // ----------------------------------------
-    // Planet outline
-    // ----------------------------------------
+    // --------------------------------------------------------
+    // ATMOSPHERE
+    // --------------------------------------------------------
 
-    ctx.strokeStyle =
-        "rgba(180,225,255,0.65)";
+    if (
+        planet.atmosphere !== false
+    ) {
 
-    ctx.lineWidth =
-        Math.max(
-            1,
-            radius * 0.035
+        const atmosphereGradient =
+            ctx.createRadialGradient(
+                x,
+                y,
+                radius * 0.82,
+                x,
+                y,
+                radius * 1.18
+            );
+
+        atmosphereGradient.addColorStop(
+            0,
+            "rgba(80,170,255,0)"
         );
+
+        atmosphereGradient.addColorStop(
+            0.72,
+            "rgba(80,170,255,0.08)"
+        );
+
+        atmosphereGradient.addColorStop(
+            1,
+            "rgba(80,190,255,0.45)"
+        );
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x,
+            y,
+            radius * 1.16,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle =
+            atmosphereGradient;
+
+        ctx.fill();
+    }
+
+    // --------------------------------------------------------
+    // HIGHLIGHT
+    // --------------------------------------------------------
 
     ctx.beginPath();
 
     ctx.arc(
-        screenX,
-        screenY,
+        x - radius * 0.32,
+        y - radius * 0.34,
+        radius * 0.18,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle =
+        "rgba(255,255,255,0.20)";
+
+    ctx.fill();
+
+    // --------------------------------------------------------
+    // OUTLINE
+    // --------------------------------------------------------
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x,
+        y,
         radius,
         0,
         Math.PI * 2
     );
 
+    ctx.strokeStyle =
+        "rgba(180,220,255,0.55)";
+
+    ctx.lineWidth =
+        Math.max(
+            1,
+            radius * 0.025
+        );
+
     ctx.stroke();
 
-    // ----------------------------------------
-    // Rings
-    // ----------------------------------------
+    // --------------------------------------------------------
+    // HEALTH INDICATOR
+    // --------------------------------------------------------
 
-    if (planet.rings) {
-        ctx.save();
-
-        ctx.translate(
-            screenX,
-            screenY
+    const maxHealth =
+        Math.max(
+            1,
+            finite(
+                planet.maxHealth,
+                100
+            )
         );
 
-        ctx.rotate(
-            planet.rotation * 0.5
+    const health =
+        Math.max(
+            0,
+            Math.min(
+                maxHealth,
+                finite(
+                    planet.health,
+                    maxHealth
+                )
+            )
         );
 
-        ctx.strokeStyle =
-            planet.ringColor;
+    if (
+        health < maxHealth
+    ) {
 
-        ctx.globalAlpha = 0.7;
+        const healthRatio =
+            health / maxHealth;
 
-        ctx.lineWidth =
+        const barWidth =
+            radius * 1.5;
+
+        const barHeight =
             Math.max(
-                1,
+                3,
                 radius * 0.06
             );
 
-        ctx.beginPath();
+        const barX =
+            x - barWidth / 2;
 
-        ctx.ellipse(
-            0,
-            0,
-            radius * 1.7,
-            radius * 0.45,
-            0,
-            0,
-            Math.PI * 2
+        const barY =
+            y +
+            radius +
+            12;
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.65)";
+
+        ctx.fillRect(
+            barX,
+            barY,
+            barWidth,
+            barHeight
         );
 
-        ctx.stroke();
+        ctx.fillStyle =
+            "#58ff88";
 
-        ctx.lineWidth =
-            Math.max(
-                1,
-                radius * 0.025
-            );
-
-        ctx.globalAlpha = 0.45;
-
-        ctx.beginPath();
-
-        ctx.ellipse(
-            0,
-            0,
-            radius * 1.95,
-            radius * 0.52,
-            0,
-            0,
-            Math.PI * 2
+        ctx.fillRect(
+            barX,
+            barY,
+            barWidth *
+                healthRatio,
+            barHeight
         );
-
-        ctx.stroke();
-
-        ctx.restore();
     }
-
-    // ----------------------------------------
-    // Highlight
-    // ----------------------------------------
-
-    ctx.fillStyle =
-        "rgba(255,255,255,0.5)";
-
-    ctx.beginPath();
-
-    ctx.arc(
-        screenX - radius * 0.32,
-        screenY - radius * 0.34,
-        radius * 0.12,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
 
     ctx.restore();
 }
 
 
-// ============================================
-// PLANET TYPE CHECK
-// ============================================
+// ============================================================
+// PLANET CHECK
+// ============================================================
 
-export function isPlanet(object) {
-    return (
-        object &&
-        object.type === "planet"
-    );
+export function isPlanet(body) {
+
+    return !!body &&
+        body.type === "planet";
 }
 
 
-// ============================================
-// DAMAGE PLANET
-// ============================================
+// ============================================================
+// DAMAGE
+// ============================================================
 
 export function damagePlanet(
     planet,
     amount = 10
 ) {
-    if (!planet || planet.destroyed) {
-        return false;
+
+    if (!planet) {
+        return;
     }
 
     const damage =
         Math.max(
             0,
-            Number(amount) || 0
+            finite(amount, 10)
         );
 
-    planet.health -= damage;
+    planet.health =
+        Math.max(
+            0,
+            finite(
+                planet.health,
+                planet.maxHealth || 100
+            ) - damage
+        );
 
-    if (planet.health <= 0) {
-        planet.health = 0;
+    if (
+        planet.health <= 0
+    ) {
         planet.destroyed = true;
     }
-
-    return true;
 }
 
 
-// ============================================
-// HEAL PLANET
-// ============================================
+// ============================================================
+// HEAL
+// ============================================================
 
 export function healPlanet(
     planet,
     amount = 10
 ) {
-    if (!planet || planet.destroyed) {
-        return false;
+
+    if (!planet) {
+        return;
     }
 
-    const healing =
+    const maxHealth =
         Math.max(
-            0,
-            Number(amount) || 0
+            1,
+            finite(
+                planet.maxHealth,
+                100
+            )
         );
 
-    planet.health += healing;
+    planet.health =
+        Math.min(
+            maxHealth,
+            finite(
+                planet.health,
+                maxHealth
+            ) +
+            Math.max(
+                0,
+                finite(amount, 10)
+            )
+        );
 
-    if (
-        planet.health >
-        planet.maxHealth
-    ) {
-        planet.health =
-            planet.maxHealth;
-    }
-
-    return true;
+    planet.destroyed = false;
 }
 
 
-// ============================================
-// SET PLANET VELOCITY
-// ============================================
+// ============================================================
+// VELOCITY
+// ============================================================
 
 export function setPlanetVelocity(
     planet,
     vx = 0,
     vy = 0
 ) {
+
     if (!planet) {
-        return false;
+        return;
     }
 
     planet.vx =
-        Number(vx) || 0;
+        finite(vx, 0);
 
     planet.vy =
-        Number(vy) || 0;
-
-    return true;
+        finite(vy, 0);
 }
 
 
-// ============================================
-// GET PLANET HEALTH
-// ============================================
+// ============================================================
+// HEALTH
+// ============================================================
 
-export function getPlanetHealth(planet) {
+export function getPlanetHealth(
+    planet
+) {
+
     if (!planet) {
         return 0;
     }
 
-    return planet.health ?? 0;
+    return Math.max(
+        0,
+        finite(
+            planet.health,
+            0
+        )
+    );
 }
 
 
-// ============================================
-// GET PLANET MASS
-// ============================================
+// ============================================================
+// MASS
+// ============================================================
 
-export function getPlanetMass(planet) {
+export function getPlanetMass(
+    planet
+) {
+
     if (!planet) {
         return 0;
     }
 
-    return planet.mass ?? 0;
+    return Math.max(
+        1,
+        finite(
+            planet.mass,
+            1000
+        )
+    );
 }
