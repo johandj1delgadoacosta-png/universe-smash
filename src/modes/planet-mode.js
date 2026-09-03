@@ -1,569 +1,799 @@
-// =========================================
-// UNIVERSE SMASH
-// PLANET MODE
-// =========================================
+import {
+    Camera,
+    enableCameraZoom
+} from "../camera.js";
 
 import {
-  createPlanet
-} from "../objects/planet.js";
-
-import {
-  createExplosion,
-  createImpact,
-  createAntimatterEffect,
-  updateParticles,
-  drawParticles
+    createExplosion,
+    createAntimatterEffect,
+    updateParticles,
+    drawParticles,
+    clearParticles
 } from "../particles.js";
 
-
-// =========================================
-// PLANET MODE STATE
-// =========================================
-
-const PlanetMode = {
-
-  active: false,
-
-  planet: null,
-
-  selectedWeapon: "laser",
-
-  canvas: null,
-
-  ctx: null
-
-};
+import {
+    createPlanet
+} from "../objects/planet.js";
 
 
-// =========================================
-// START PLANET MODE
-// =========================================
+let canvas = null;
+let ctx = null;
+
+let camera = null;
+
+let planet = null;
+
+let running = false;
+
+let selectedWeapon = "laser";
+
+let menuBuilt = false;
+
+let rotation = 0;
+
 
 export function startPlanetMode(
-  canvas
+    gameCanvas,
+    gameCtx,
+    menuCallback
 ) {
 
-  PlanetMode.active = true;
+    canvas = gameCanvas;
+    ctx = gameCtx;
 
-  PlanetMode.canvas = canvas;
+    camera =
+        new Camera();
 
-  PlanetMode.ctx =
-    canvas.getContext("2d");
+    camera.zoom = 1;
+
+    planet =
+        createPlanet(
+            0,
+            0,
+            {
+                radius: 170,
+                mass: 10000,
+                color: "#3b82ff"
+            }
+        );
+
+    running = true;
+
+    rotation = 0;
+
+    clearParticles();
+
+    buildWeaponMenu();
 
 
-  // Create one planet in the center
+    const menu =
+        document.getElementById(
+            "planet-weapon-menu"
+        );
 
-  PlanetMode.planet =
-    createPlanet(
-      "earth",
-      canvas.width / 2,
-      canvas.height / 2,
-      {
-        fixed: true
-      }
+    menu.style.display =
+        "block";
+
+
+    enableCameraZoom(
+        canvas,
+        camera
     );
 
 
-  console.log(
-    "🌍 Planet Mode Started"
-  );
+    if (!canvas.dataset.planetEvents) {
+
+        canvas.dataset.planetEvents =
+            "true";
 
 
-  createPlanetWeaponMenu();
+        canvas.addEventListener(
+            "pointerdown",
+            planetPointerDown
+        );
+    }
 
+
+    if (
+        !window.__planetMenuListener
+    ) {
+
+        window.__planetMenuListener =
+            true;
+
+        window.addEventListener(
+            "universe-smash-menu",
+            () => {
+
+                if (menuCallback) {
+                    menuCallback();
+                }
+            }
+        );
+    }
 }
 
-
-// =========================================
-// STOP PLANET MODE
-// =========================================
 
 export function stopPlanetMode() {
 
-  PlanetMode.active = false;
+    running = false;
 
-  PlanetMode.planet = null;
-
-
-  const weaponMenu =
-    document.getElementById(
-      "planet-weapon-menu"
-    );
-
-
-  if (weaponMenu) {
-
-    weaponMenu.remove();
-
-  }
-
-}
-
-
-// =========================================
-// CREATE WEAPON MENU
-// =========================================
-
-function createPlanetWeaponMenu() {
-
-  let menu =
-    document.getElementById(
-      "planet-weapon-menu"
-    );
-
-
-  if (menu) {
-
-    menu.remove();
-
-  }
-
-
-  menu =
-    document.createElement("div");
-
-
-  menu.id =
-    "planet-weapon-menu";
-
-
-  menu.innerHTML = `
-
-    <h2>🌍 PLANET MODE</h2>
-
-    <p>Select a fictional game effect:</p>
-
-    <button data-weapon="laser">
-      🔴 Laser
-    </button>
-
-    <button data-weapon="ice-laser">
-      ❄️ Ice Laser
-    </button>
-
-    <button data-weapon="asteroid">
-      ☄️ Asteroid Impact
-    </button>
-
-    <button data-weapon="mystery">
-      ❓ Mystery Matter
-    </button>
-
-    <button data-weapon="alien">
-      👾 Alien Effect
-    </button>
-
-    <button data-weapon="antimatter">
-      🟣 Antimatter Effect
-    </button>
-
-  `;
-
-
-  document.body.appendChild(
-    menu
-  );
-
-
-  menu
-    .querySelectorAll(
-      "button[data-weapon]"
-    )
-    .forEach(
-      button => {
-
-        button.addEventListener(
-          "click",
-          () => {
-
-            PlanetMode.selectedWeapon =
-              button.dataset.weapon;
-
-            console.log(
-              "Selected:",
-              PlanetMode.selectedWeapon
-            );
-
-          }
+    const menu =
+        document.getElementById(
+            "planet-weapon-menu"
         );
 
-      }
-    );
+    if (menu) {
 
+        menu.style.display =
+            "none";
+    }
 }
 
 
-// =========================================
-// USE SELECTED GAME EFFECT
-// =========================================
+function buildWeaponMenu() {
 
-export function usePlanetWeapon(
-  x,
-  y
-) {
-
-  if (
-    !PlanetMode.active ||
-    !PlanetMode.planet
-  ) {
-    return;
-  }
-
-
-  const planet =
-    PlanetMode.planet;
-
-
-  switch (
-    PlanetMode.selectedWeapon
-  ) {
-
-
-    // -------------------------------------
-    // LASER
-    // -------------------------------------
-
-    case "laser":
-
-      createImpact(
-        x,
-        y,
-        "#ff3333"
-      );
-
-      break;
-
-
-    // -------------------------------------
-    // ICE LASER
-    // -------------------------------------
-
-    case "ice-laser":
-
-      createImpact(
-        x,
-        y,
-        "#55ddff"
-      );
-
-      break;
-
-
-    // -------------------------------------
-    // ASTEROID
-    // -------------------------------------
-
-    case "asteroid":
-
-      createExplosion(
-        x,
-        y,
-        {
-
-          count: 35,
-
-          color: "#ff8833",
-
-          size: 8,
-
-          speed: 8
-
-        }
-      );
-
-      break;
-
-
-    // -------------------------------------
-    // MYSTERY MATTER
-    // -------------------------------------
-
-    case "mystery":
-
-      triggerMysteryEffect(
-        planet,
-        x,
-        y
-      );
-
-      break;
-
-
-    // -------------------------------------
-    // ALIEN EFFECT
-    // -------------------------------------
-
-    case "alien":
-
-      createExplosion(
-        x,
-        y,
-        {
-
-          count: 30,
-
-          color: "#55ff88",
-
-          size: 7,
-
-          speed: 7
-
-        }
-      );
-
-      break;
-
-
-    // -------------------------------------
-    // ANTIMATTER
-    // -------------------------------------
-
-    case "antimatter":
-
-      createAntimatterEffect(
-        x,
-        y
-      );
-
-      break;
-
-  }
-
-}
-
-
-// =========================================
-// MYSTERY MATTER RANDOM EFFECT
-// =========================================
-
-function triggerMysteryEffect(
-  planet,
-  x,
-  y
-) {
-
-  const effects = [
-
-    () => {
-
-      createExplosion(
-        x,
-        y,
-        {
-          count: 50,
-          color: "#ff44ff",
-          speed: 10
-        }
-      );
-
-    },
-
-
-    () => {
-
-      planet.size *= 1.15;
-
-      planet.radius =
-        planet.size / 2;
-
-    },
-
-
-    () => {
-
-      planet.size *= 0.85;
-
-      planet.radius =
-        planet.size / 2;
-
-    },
-
-
-    () => {
-
-      createExplosion(
-        x,
-        y,
-        {
-          count: 60,
-          color: "#44ffff",
-          speed: 12
-        }
-      );
-
-    },
-
-
-    () => {
-
-      planet.rotationSpeed =
-        (planet.rotationSpeed ?? 0)
-        + 4;
-
+    if (menuBuilt) {
+        return;
     }
 
-  ];
+    menuBuilt = true;
 
 
-  const effect =
-    effects[
-      Math.floor(
-        Math.random() *
-        effects.length
-      )
-    ];
+    const menu =
+        document.getElementById(
+            "planet-weapon-menu"
+        );
 
 
-  effect();
+    menu.innerHTML = `
 
+        <div class="menu-section-title">
+            PLANET MODE
+        </div>
+
+        <button
+            class="game-button"
+            data-weapon="laser">
+            🔴 LASER
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="ice">
+            ❄️ ICE LASER
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="asteroid">
+            ☄️ ASTEROID
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="mystery">
+            ❓ MYSTERY MATTER
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="alien">
+            👽 ALIEN SHIP
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="antimatter">
+            💜 ANTIMATTER
+        </button>
+
+        <button
+            class="game-button"
+            id="planet-reset">
+            🔄 RESET PLANET
+        </button>
+
+        <button
+            class="game-button"
+            id="planet-menu">
+            ← MAIN MENU
+        </button>
+    `;
+
+
+    menu
+        .querySelectorAll(
+            "[data-weapon]"
+        )
+        .forEach(button => {
+
+            button.onclick = () => {
+
+                selectedWeapon =
+                    button.dataset.weapon;
+            };
+        });
+
+
+    document
+        .getElementById(
+            "planet-reset"
+        )
+        .onclick =
+        resetPlanet;
+
+
+    document
+        .getElementById(
+            "planet-menu"
+        )
+        .onclick = () => {
+
+            window.dispatchEvent(
+                new CustomEvent(
+                    "universe-smash-menu"
+                )
+            );
+        };
 }
 
 
-// =========================================
-// UPDATE PLANET MODE
-// =========================================
+function resetPlanet() {
 
-export function updatePlanetMode(
-  deltaTime = 1
+    planet =
+        createPlanet(
+            0,
+            0,
+            {
+                radius: 170,
+                mass: 10000,
+                color: "#3b82ff"
+            }
+        );
+
+    rotation = 0;
+
+    clearParticles();
+}
+
+
+function planetPointerDown(
+    event
 ) {
 
-  if (!PlanetMode.active) return;
+    if (!running) {
+        return;
+    }
 
 
-  updateParticles(
-    deltaTime
-  );
+    if (event.button !== 0) {
+        return;
+    }
 
 
-  if (PlanetMode.planet) {
+    const point =
+        camera.screenToWorld(
+            event.clientX,
+            event.clientY,
+            canvas
+        );
 
-    PlanetMode.planet.rotation +=
-      (PlanetMode.planet.rotationSpeed ?? 0)
-      * deltaTime;
 
-  }
+    const dx =
+        point.x -
+        planet.x;
 
+    const dy =
+        point.y -
+        planet.y;
+
+
+    const distance =
+        Math.sqrt(
+            dx * dx +
+            dy * dy
+        );
+
+
+    if (
+        distance <=
+        planet.radius
+    ) {
+
+        usePlanetWeapon(
+            point.x,
+            point.y
+        );
+    }
 }
 
 
-// =========================================
-// DRAW PLANET MODE
-// =========================================
+function usePlanetWeapon(
+    x,
+    y
+) {
+
+    switch (selectedWeapon) {
+
+        case "laser":
+
+            createExplosion(
+                x,
+                y,
+                15
+            );
+
+            planet.radius -= 3;
+
+            break;
+
+
+        case "ice":
+
+            planet.color =
+                "#9eeaff";
+
+            createExplosion(
+                x,
+                y,
+                10
+            );
+
+            break;
+
+
+        case "asteroid":
+
+            createExplosion(
+                x,
+                y,
+                35
+            );
+
+            planet.radius -= 8;
+
+            break;
+
+
+        case "mystery":
+
+            mysteryMatter();
+
+            break;
+
+
+        case "alien":
+
+            createExplosion(
+                x,
+                y,
+                25
+            );
+
+            planet.rotation +=
+                0.4;
+
+            break;
+
+
+        case "antimatter":
+
+            createAntimatterEffect(
+                x,
+                y
+            );
+
+            planet.radius -=
+                15;
+
+            break;
+    }
+
+
+    if (
+        planet.radius < 20
+    ) {
+
+        planet.radius = 20;
+    }
+}
+
+
+function mysteryMatter() {
+
+    const effect =
+        Math.floor(
+            Math.random() * 5
+        );
+
+
+    switch (effect) {
+
+        case 0:
+
+            planet.radius += 25;
+
+            planet.color =
+                "#44ff99";
+
+            break;
+
+
+        case 1:
+
+            planet.radius -= 20;
+
+            planet.color =
+                "#ff5555";
+
+            break;
+
+
+        case 2:
+
+            planet.color =
+                "#bb66ff";
+
+            rotation += 2;
+
+            break;
+
+
+        case 3:
+
+            createExplosion(
+                planet.x,
+                planet.y,
+                60
+            );
+
+            break;
+
+
+        case 4:
+
+            planet.color =
+                "#ffaa33";
+
+            planet.radius += 10;
+
+            break;
+    }
+}
+
+
+export function updatePlanetMode(
+    deltaTime = 1
+) {
+
+    if (!running) {
+        return;
+    }
+
+
+    rotation +=
+        0.003 *
+        deltaTime;
+
+
+    updateParticles(
+        deltaTime
+    );
+}
+
 
 export function drawPlanetMode() {
 
-  if (
-    !PlanetMode.active ||
-    !PlanetMode.ctx ||
-    !PlanetMode.canvas
-  ) {
-    return;
-  }
-
-
-  const ctx =
-    PlanetMode.ctx;
-
-  const canvas =
-    PlanetMode.canvas;
-
-  const planet =
-    PlanetMode.planet;
-
-
-  // Clear screen
-
-  ctx.clearRect(
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-
-  // Space background
-
-  ctx.fillStyle =
-    "#030712";
-
-  ctx.fillRect(
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-
-  if (planet) {
-
-    ctx.save();
-
-
-    // Planet glow
-
-    ctx.shadowBlur =
-      40;
-
-    ctx.shadowColor =
-      planet.glow ??
-      "#44aaff";
+    if (
+        !canvas ||
+        !ctx ||
+        !camera ||
+        !planet
+    ) {
+        return;
+    }
 
 
     ctx.fillStyle =
-      planet.color ??
-      "#3388dd";
+        "#000";
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    drawPlanetBackground();
+
+
+    const p =
+        camera.worldToScreen(
+            planet.x,
+            planet.y,
+            canvas
+        );
+
+
+    const r =
+        planet.radius *
+        camera.zoom;
+
+
+    const atmosphere =
+        ctx.createRadialGradient(
+            p.x,
+            p.y,
+            r * 0.7,
+            p.x,
+            p.y,
+            r * 1.4
+        );
+
+
+    atmosphere.addColorStop(
+        0,
+        "rgba(60,140,255,0)"
+    );
+
+    atmosphere.addColorStop(
+        0.7,
+        "rgba(60,140,255,0.15)"
+    );
+
+    atmosphere.addColorStop(
+        1,
+        "rgba(60,140,255,0)"
+    );
+
+
+    ctx.fillStyle =
+        atmosphere;
 
 
     ctx.beginPath();
 
     ctx.arc(
-      planet.position.x,
-      planet.position.y,
-      planet.radius,
-      0,
-      Math.PI * 2
+        p.x,
+        p.y,
+        r * 1.4,
+        0,
+        Math.PI * 2
     );
 
     ctx.fill();
 
 
-    ctx.restore();
+    const planetGradient =
+        ctx.createRadialGradient(
+            p.x - r * 0.35,
+            p.y - r * 0.35,
+            r * 0.1,
+            p.x,
+            p.y,
+            r
+        );
 
-  }
+
+    planetGradient.addColorStop(
+        0,
+        "#ffffff"
+    );
+
+    planetGradient.addColorStop(
+        0.18,
+        planet.color
+    );
+
+    planetGradient.addColorStop(
+        0.65,
+        planet.color
+    );
+
+    planetGradient.addColorStop(
+        1,
+        "#030817"
+    );
 
 
-  // Draw visual effects
+    ctx.fillStyle =
+        planetGradient;
 
-  drawParticles(
-    ctx,
-    {
-      zoom: 1,
 
-      worldToScreen(
-        x,
-        y
-      ) {
+    ctx.beginPath();
 
-        return {
-          x,
-          y
-        };
+    ctx.arc(
+        p.x,
+        p.y,
+        r,
+        0,
+        Math.PI * 2
+    );
 
-      }
+    ctx.fill();
 
-    },
-    canvas
-  );
 
+    drawContinents(
+        p.x,
+        p.y,
+        r
+    );
+
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,0.35)";
+
+    ctx.lineWidth =
+        1;
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        p.x,
+        p.y,
+        r,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    drawParticles(
+        ctx,
+        camera,
+        canvas
+    );
+
+
+    const count =
+        document.getElementById(
+            "object-count"
+        );
+
+    const zoom =
+        document.getElementById(
+            "zoom-display"
+        );
+
+    const mode =
+        document.getElementById(
+            "mode-display"
+        );
+
+
+    if (count) {
+
+        count.textContent =
+            "Objects: 1";
+    }
+
+
+    if (zoom) {
+
+        zoom.textContent =
+            `Zoom: ${Math.round(
+                camera.zoom * 100
+            )}%`;
+    }
+
+
+    if (mode) {
+
+        mode.textContent =
+            "PLANET MODE";
+    }
 }
 
 
-// =========================================
-// GET PLANET MODE
-// =========================================
+function drawPlanetBackground() {
+
+    for (
+        let i = 0;
+        i < 250;
+        i++
+    ) {
+
+        const x =
+            Math.random() *
+            canvas.width;
+
+        const y =
+            Math.random() *
+            canvas.height;
+
+
+        ctx.fillStyle =
+            "rgba(255,255,255,0.5)";
+
+
+        ctx.fillRect(
+            x,
+            y,
+            1,
+            1
+        );
+    }
+}
+
+
+function drawContinents(
+    x,
+    y,
+    r
+) {
+
+    ctx.save();
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x,
+        y,
+        r,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.clip();
+
+
+    ctx.fillStyle =
+        "rgba(30,180,100,0.55)";
+
+
+    for (
+        let i = 0;
+        i < 12;
+        i++
+    ) {
+
+        const angle =
+            rotation +
+            i * 2.7;
+
+
+        const cx =
+            x +
+            Math.cos(angle) *
+            r *
+            0.55;
+
+        const cy =
+            y +
+            Math.sin(angle) *
+            r *
+            0.45;
+
+
+        ctx.beginPath();
+
+        ctx.ellipse(
+            cx,
+            cy,
+            r * 0.18,
+            r * 0.09,
+            angle,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+    }
+
+
+    ctx.restore();
+}
+
 
 export function getPlanetMode() {
 
-  return PlanetMode;
-
+    return {
+        planet,
+        camera,
+        weapon: selectedWeapon
+    };
 }
