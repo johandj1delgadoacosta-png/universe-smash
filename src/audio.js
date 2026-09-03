@@ -1,321 +1,576 @@
-// src/audio.js
+// Universe Smash
+// Audio System
 
 let audioContext = null;
 let masterGain = null;
-let enabled = true;
-let initialized = false;
+let audioEnabled = true;
+let masterVolume = 0.7;
+
+const activeSources = new Set();
 
 function createAudioContext() {
-    if (audioContext) return audioContext;
+    if (audioContext) {
+        return audioContext;
+    }
 
     const AudioContextClass =
         window.AudioContext ||
         window.webkitAudioContext;
 
     if (!AudioContextClass) {
-        enabled = false;
+        audioEnabled = false;
         return null;
     }
 
-    audioContext = new AudioContextClass();
+    audioContext =
+        new AudioContextClass();
 
     masterGain =
         audioContext.createGain();
 
-    masterGain.gain.value = 0.25;
+    masterGain.gain.value =
+        masterVolume;
 
     masterGain.connect(
         audioContext.destination
     );
 
-    initialized = true;
-
     return audioContext;
 }
 
 export function initAudio() {
-    const ctx = createAudioContext();
+    return createAudioContext();
+}
 
-    if (!ctx) return false;
-
-    if (ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
+export async function resumeAudio() {
+    if (!audioContext) {
+        createAudioContext();
     }
+
+    if (
+        audioContext &&
+        audioContext.state === "suspended"
+    ) {
+        try {
+            await audioContext.resume();
+        } catch (error) {
+            console.warn(
+                "Universe Smash audio could not resume:",
+                error
+            );
+        }
+    }
+
+    return audioContext;
+}
+
+export function enableAudio() {
+    audioEnabled = true;
+
+    createAudioContext();
+
+    resumeAudio();
 
     return true;
 }
 
-export function enableAudio() {
-    enabled = true;
-    initAudio();
-}
-
 export function disableAudio() {
-    enabled = false;
+    audioEnabled = false;
+
+    stopAllSounds();
+
+    return false;
 }
 
 export function isAudioEnabled() {
-    return enabled;
+    return audioEnabled;
+}
+
+export function setMasterVolume(volume) {
+    masterVolume =
+        Math.max(
+            0,
+            Math.min(
+                1,
+                Number(volume) || 0
+            )
+        );
+
+    if (masterGain) {
+        masterGain.gain.setTargetAtTime(
+            masterVolume,
+            audioContext.currentTime,
+            0.01
+        );
+    }
+
+    return masterVolume;
+}
+
+export function getMasterVolume() {
+    return masterVolume;
+}
+
+function canPlay() {
+    return (
+        audioEnabled &&
+        audioContext &&
+        masterGain
+    );
+}
+
+function rememberSource(source) {
+    activeSources.add(source);
+
+    source.addEventListener(
+        "ended",
+        () => {
+            activeSources.delete(source);
+        },
+        {
+            once: true
+        }
+    );
+
+    return source;
 }
 
 function playTone({
     frequency = 440,
     duration = 0.15,
     type = "sine",
-    volume = 0.15,
+    volume = 0.2,
     slideTo = null
 } = {}) {
-    if (!enabled) return;
+    if (!audioEnabled) {
+        return null;
+    }
 
-    const ctx = createAudioContext();
+    if (!audioContext) {
+        createAudioContext();
+    }
 
-    if (!ctx || !masterGain) return;
+    if (!audioContext || !masterGain) {
+        return null;
+    }
 
-    if (ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
+    if (audioContext.state === "suspended") {
+        resumeAudio();
     }
 
     const oscillator =
-        ctx.createOscillator();
+        audioContext.createOscillator();
 
     const gain =
-        ctx.createGain();
+        audioContext.createGain();
+
+    const now =
+        audioContext.currentTime;
 
     oscillator.type = type;
 
     oscillator.frequency.setValueAtTime(
         frequency,
-        ctx.currentTime
+        now
     );
 
     if (slideTo !== null) {
         oscillator.frequency.exponentialRampToValueAtTime(
             Math.max(1, slideTo),
-            ctx.currentTime + duration
+            now + duration
         );
     }
 
     gain.gain.setValueAtTime(
         0.0001,
-        ctx.currentTime
+        now
     );
 
     gain.gain.exponentialRampToValueAtTime(
         Math.max(0.0001, volume),
-        ctx.currentTime + 0.01
+        now + 0.01
     );
 
     gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        ctx.currentTime + duration
+        now + duration
     );
 
     oscillator.connect(gain);
     gain.connect(masterGain);
 
-    oscillator.start();
+    oscillator.start(now);
+    oscillator.stop(now + duration);
 
-    oscillator.stop(
-        ctx.currentTime + duration + 0.02
+    return rememberSource(
+        oscillator
     );
 }
 
-export function playClickSound() {
-    playTone({
-        frequency: 520,
-        duration: 0.07,
-        type: "square",
-        volume: 0.08,
-        slideTo: 700
-    });
-}
-
-export function playLaserSound() {
-    playTone({
-        frequency: 900,
-        duration: 0.18,
-        type: "sawtooth",
-        volume: 0.07,
-        slideTo: 180
-    });
-}
-
-export function playExplosionSound() {
-    const ctx = createAudioContext();
-
-    if (!enabled || !ctx || !masterGain) {
-        return;
+function playNoise({
+    duration = 0.2,
+    volume = 0.12,
+    filterFrequency = 1200
+} = {}) {
+    if (!audioEnabled) {
+        return null;
     }
 
-    const oscillator =
-        ctx.createOscillator();
+    if (!audioContext) {
+        createAudioContext();
+    }
+
+    if (!audioContext || !masterGain) {
+        return null;
+    }
+
+    const bufferSize =
+        Math.floor(
+            audioContext.sampleRate *
+            duration
+        );
+
+    const buffer =
+        audioContext.createBuffer(
+            1,
+            bufferSize,
+            audioContext.sampleRate
+        );
+
+    const data =
+        buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] =
+            Math.random() * 2 - 1;
+    }
+
+    const source =
+        audioContext.createBufferSource();
+
+    const filter =
+        audioContext.createBiquadFilter();
 
     const gain =
-        ctx.createGain();
+        audioContext.createGain();
 
-    oscillator.type = "sawtooth";
+    const now =
+        audioContext.currentTime;
 
-    oscillator.frequency.setValueAtTime(
-        90,
-        ctx.currentTime
-    );
+    source.buffer = buffer;
 
-    oscillator.frequency.exponentialRampToValueAtTime(
-        25,
-        ctx.currentTime + 0.5
+    filter.type =
+        "lowpass";
+
+    filter.frequency.setValueAtTime(
+        filterFrequency,
+        now
     );
 
     gain.gain.setValueAtTime(
         0.0001,
-        ctx.currentTime
+        now
     );
 
     gain.gain.exponentialRampToValueAtTime(
-        0.18,
-        ctx.currentTime + 0.02
+        Math.max(0.0001, volume),
+        now + 0.01
     );
 
     gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        ctx.currentTime + 0.5
+        now + duration
     );
 
-    oscillator.connect(gain);
+    source.connect(filter);
+    filter.connect(gain);
     gain.connect(masterGain);
 
-    oscillator.start();
+    source.start(now);
+    source.stop(now + duration);
 
-    oscillator.stop(
-        ctx.currentTime + 0.52
+    return rememberSource(
+        source
+    );
+}
+
+export function playClickSound() {
+    return playTone({
+        frequency: 520,
+        duration: 0.07,
+        type: "square",
+        volume: 0.08,
+        slideTo: 620
+    });
+}
+
+export function playMenuSelect() {
+    playTone({
+        frequency: 420,
+        duration: 0.08,
+        type: "sine",
+        volume: 0.08,
+        slideTo: 650
+    });
+
+    setTimeout(() => {
+        playTone({
+            frequency: 650,
+            duration: 0.1,
+            type: "sine",
+            volume: 0.07
+        });
+    }, 60);
+}
+
+export function playLaserSound() {
+    return playTone({
+        frequency: 900,
+        duration: 0.18,
+        type: "sawtooth",
+        volume: 0.12,
+        slideTo: 180
+    });
+}
+
+export function playIceLaserSound() {
+    return playTone({
+        frequency: 1400,
+        duration: 0.25,
+        type: "triangle",
+        volume: 0.1,
+        slideTo: 650
+    });
+}
+
+export function playAsteroidImpact() {
+    playNoise({
+        duration: 0.28,
+        volume: 0.16,
+        filterFrequency: 850
+    });
+
+    setTimeout(() => {
+        playTone({
+            frequency: 90,
+            duration: 0.22,
+            type: "sine",
+            volume: 0.13,
+            slideTo: 45
+        });
+    }, 25);
+}
+
+export function playExplosionSound() {
+    playNoise({
+        duration: 0.5,
+        volume: 0.2,
+        filterFrequency: 700
+    });
+
+    setTimeout(() => {
+        playTone({
+            frequency: 75,
+            duration: 0.42,
+            type: "sine",
+            volume: 0.18,
+            slideTo: 28
+        });
+    }, 20);
+}
+
+export function playAntimatterSound() {
+    playTone({
+        frequency: 1000,
+        duration: 0.3,
+        type: "sine",
+        volume: 0.12,
+        slideTo: 1800
+    });
+
+    setTimeout(() => {
+        playNoise({
+            duration: 0.35,
+            volume: 0.15,
+            filterFrequency: 1800
+        });
+    }, 180);
+}
+
+export function playAlienSound() {
+    playTone({
+        frequency: 330,
+        duration: 0.12,
+        type: "square",
+        volume: 0.08,
+        slideTo: 880
+    });
+
+    setTimeout(() => {
+        playTone({
+            frequency: 880,
+            duration: 0.16,
+            type: "square",
+            volume: 0.08,
+            slideTo: 440
+        });
+    }, 100);
+}
+
+export function playMysterySound() {
+    const notes = [
+        220,
+        330,
+        440,
+        660,
+        550
+    ];
+
+    notes.forEach(
+        (frequency, index) => {
+            setTimeout(() => {
+                playTone({
+                    frequency,
+                    duration: 0.12,
+                    type: "triangle",
+                    volume: 0.07
+                });
+            }, index * 90);
+        }
     );
 }
 
 export function playBlackHoleSound() {
     playTone({
-        frequency: 65,
-        duration: 0.7,
+        frequency: 100,
+        duration: 0.8,
         type: "sine",
-        volume: 0.1,
-        slideTo: 28
+        volume: 0.12,
+        slideTo: 25
     });
 }
 
 export function playWormholeSound() {
     playTone({
-        frequency: 220,
+        frequency: 180,
         duration: 0.5,
-        type: "triangle",
-        volume: 0.08,
-        slideTo: 880
+        type: "sawtooth",
+        volume: 0.09,
+        slideTo: 1100
     });
 }
 
-export function playAntimatterSound() {
+export function playGreyHoleSound() {
     playTone({
-        frequency: 700,
-        duration: 0.35,
-        type: "square",
+        frequency: 65,
+        duration: 0.7,
+        type: "triangle",
         volume: 0.08,
-        slideTo: 70
+        slideTo: 42
     });
 }
 
 export function playSpawnSound() {
     playTone({
-        frequency: 330,
+        frequency: 260,
+        duration: 0.18,
+        type: "sine",
+        volume: 0.07,
+        slideTo: 520
+    });
+}
+
+export function playSelectSound() {
+    return playClickSound();
+}
+
+export function playPauseSound() {
+    return playTone({
+        frequency: 300,
         duration: 0.12,
         type: "triangle",
-        volume: 0.06,
-        slideTo: 660
+        volume: 0.07
     });
 }
 
-export function playMenuSound() {
-    playTone({
-        frequency: 440,
-        duration: 0.1,
-        type: "triangle",
-        volume: 0.05,
-        slideTo: 660
-    });
-}
-
-export function playErrorSound() {
-    playTone({
-        frequency: 120,
-        duration: 0.2,
-        type: "square",
-        volume: 0.06,
-        slideTo: 70
-    });
-}
-
-export function setMasterVolume(volume) {
-    const ctx = createAudioContext();
-
-    if (!ctx || !masterGain) return;
-
-    const safeVolume =
-        Math.max(
-            0,
-            Math.min(1, Number(volume) || 0)
-        );
-
-    masterGain.gain.setValueAtTime(
-        safeVolume,
-        ctx.currentTime
-    );
-}
-
-export function getMasterVolume() {
-    if (!masterGain) return 0.25;
-
-    return masterGain.gain.value;
-}
-
-export async function resumeAudio() {
-    const ctx = createAudioContext();
-
-    if (!ctx) return;
-
-    if (ctx.state === "suspended") {
-        await ctx.resume();
+export function stopAllSounds() {
+    for (const source of activeSources) {
+        try {
+            source.stop();
+        } catch (error) {
+            // Source may already have stopped.
+        }
     }
+
+    activeSources.clear();
 }
 
 export function loadDefaultSounds() {
-    initAudio();
+    if (!audioContext) {
+        createAudioContext();
+    }
 
-    return {
-        click: playClickSound,
-        laser: playLaserSound,
-        explosion: playExplosionSound,
-        blackHole: playBlackHoleSound,
-        wormhole: playWormholeSound,
-        antimatter: playAntimatterSound,
-        spawn: playSpawnSound,
-        menu: playMenuSound,
-        error: playErrorSound
-    };
+    return true;
 }
 
 export function destroyAudio() {
+    stopAllSounds();
+
     if (audioContext) {
-        audioContext.close().catch(() => {});
+        try {
+            audioContext.close();
+        } catch (error) {
+            console.warn(
+                "Universe Smash audio cleanup failed:",
+                error
+            );
+        }
     }
 
     audioContext = null;
     masterGain = null;
-    initialized = false;
 }
 
 export function getAudioState() {
     return {
-        enabled,
-        initialized,
-        state: audioContext
-            ? audioContext.state
-            : "uninitialized",
-        volume: getMasterVolume()
+        enabled: audioEnabled,
+        volume: masterVolume,
+        contextState:
+            audioContext
+                ? audioContext.state
+                : "uninitialized",
+        activeSources:
+            activeSources.size
     };
 }
+
+export const AudioSystem = {
+    initAudio,
+    enableAudio,
+    disableAudio,
+    isAudioEnabled,
+    setMasterVolume,
+    getMasterVolume,
+    resumeAudio,
+    playClickSound,
+    playMenuSelect,
+    playLaserSound,
+    playIceLaserSound,
+    playAsteroidImpact,
+    playExplosionSound,
+    playAntimatterSound,
+    playAlienSound,
+    playMysterySound,
+    playBlackHoleSound,
+    playWormholeSound,
+    playGreyHoleSound,
+    playSpawnSound,
+    playSelectSound,
+    playPauseSound,
+    stopAllSounds,
+    loadDefaultSounds,
+    destroyAudio,
+    getAudioState
+};
+
+window.UniverseSmashAudio = AudioSystem;
