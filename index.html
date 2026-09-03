@@ -1,409 +1,427 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
 
-  <title>Universe Smash</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-  <link rel="stylesheet" href="style.css">
+    <meta
+        name="description"
+        content="Universe Smash - A cosmic physics sandbox"
+    >
+
+    <meta
+        name="theme-color"
+        content="#000000"
+    >
+
+    <title>Universe Smash</title>
+
+    <!-- Main stylesheet -->
+    <link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
-<div id="startup-screen"></div>
-  <div id="main-menu"></div>
-  <canvas id="game-canvas"></canvas>
-  <!-- Main game container -->
-  <div id="game">
 
-    <!-- Three.js will render the universe here -->
-    <div id="gameCanvas"></div>
+    <!-- =====================================================
+         STARTUP SCREEN
+    ====================================================== -->
 
-    <!-- =========================
-         STARTUP / SPLASH SCREEN
-         ========================= -->
-    <section id="startupScreen" class="screen active">
+    <div
+        id="startup-screen"
+        aria-label="Universe Smash startup screen"
+    >
 
-      <div id="studioSplash" class="startupPanel">
-        <div class="logoStar">✦</div>
-        <h1>UNIVERSE SMASH</h1>
-        <p>STUDIOS</p>
-      </div>
+        <div class="startup-container">
 
-      <div id="techSplash" class="startupPanel hidden">
-        <p class="smallTitle">POWERED BY</p>
-        <h1>JAVASCRIPT</h1>
-        <h1>THREE.JS</h1>
-        <h1>WEBGL</h1>
-      </div>
+            <div class="startup-title">
+                UNIVERSE SMASH
+            </div>
 
-      <div id="warningSplash" class="startupPanel hidden">
-        <h1>PHOTOSENSITIVITY NOTICE</h1>
-        <p>
-          Universe Smash contains bright lights,
-          flashing effects, and intense visual events.
-        </p>
+            <div class="startup-subtitle">
+                COSMIC SIMULATION ENGINE
+            </div>
 
-        <button id="warningContinueButton">
-          CONTINUE
-        </button>
-      </div>
+            <div class="loading-container">
 
-      <div id="loadingSplash" class="startupPanel hidden">
-        <h1>INITIALIZING UNIVERSE...</h1>
+                <div class="loading-bar">
 
-        <div class="loadingItem">
-          <span>PLANETS</span>
-          <div class="progressBar">
-            <div id="planetProgress" class="progressFill"></div>
-          </div>
+                    <div
+                        class="loading-progress"
+                        id="loading-progress"
+                    ></div>
+
+                </div>
+
+            </div>
+
+            <div
+                class="press-start"
+                id="press-start"
+                style="display: none;"
+            >
+                PRESS START
+            </div>
+
         </div>
 
-        <div class="loadingItem">
-          <span>STARS</span>
-          <div class="progressBar">
-            <div id="starProgress" class="progressFill"></div>
-          </div>
-        </div>
-
-        <div class="loadingItem">
-          <span>PHYSICS</span>
-          <div class="progressBar">
-            <div id="physicsProgress" class="progressFill"></div>
-          </div>
-        </div>
-
-        <div class="loadingItem">
-          <span>EFFECTS</span>
-          <div class="progressBar">
-            <div id="effectsProgress" class="progressFill"></div>
-          </div>
-        </div>
-
-        <p id="loadingText">LOADING...</p>
-      </div>
-
-    </section>
+    </div>
 
 
-    <!-- =========================
-         TITLE SCREEN
-         ========================= -->
-    <section id="titleScreen" class="screen hidden">
-
-      <div class="titleContent">
-
-        <div class="titleStar">✦</div>
-
-        <h1 class="gameTitle">
-          UNIVERSE
-          <span>SMASH</span>
-        </h1>
-
-        <button id="pressStartButton">
-          ▶ PRESS START
-        </button>
-
-        <button id="titleSettingsButton" class="secondaryButton">
-          ⚙ SETTINGS
-        </button>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
+    <!-- =====================================================
          MAIN MENU
-         ========================= -->
-    <section id="mainMenu" class="screen hidden">
+    ====================================================== -->
 
-      <div class="menuPanel">
+    <div
+        id="main-menu"
+        style="display: none;"
+    >
 
-        <h1>UNIVERSE SMASH</h1>
+        <div class="menu-container">
 
-        <button id="planetModeButton" class="menuButton">
-          🪐
-          <span>
-            <strong>PLANET MODE</strong>
-            <small>Experiment with one world</small>
-          </span>
-        </button>
+            <div class="menu-title">
+                UNIVERSE SMASH
+            </div>
 
-        <button id="solarSystemButton" class="menuButton">
-          ☀️
-          <span>
-            <strong>SOLAR SYSTEM</strong>
-            <small>Build and simulate star systems</small>
-          </span>
-        </button>
+            <div class="menu-buttons">
 
-        <button id="settingsButton" class="menuButton">
-          ⚙️
-          <span>
-            <strong>SETTINGS</strong>
-            <small>Graphics and game options</small>
-          </span>
-        </button>
+                <button
+                    id="planet-mode-button"
+                    class="menu-button"
+                    type="button"
+                >
+                    PLANET MODE
+                </button>
 
-      </div>
+                <button
+                    id="solar-mode-button"
+                    class="menu-button"
+                    type="button"
+                >
+                    SOLAR SYSTEM MODE
+                </button>
 
-    </section>
+                <button
+                    id="settings-button"
+                    class="menu-button"
+                    type="button"
+                >
+                    SETTINGS
+                </button>
 
+            </div>
 
-    <!-- =========================
-         PLANET MODE
-         ========================= -->
-    <section id="planetModeScreen" class="gameScreen hidden">
-
-      <header class="topBar">
-        <button class="backButton" data-back="menu">
-          ← MENU
-        </button>
-
-        <h2>🪐 PLANET MODE</h2>
-
-        <div class="topStatus">
-          UNIVERSE SMASH
-        </div>
-      </header>
-
-
-      <!-- Left tool panel -->
-      <aside class="leftPanel">
-
-        <h3>SELECT TOOL</h3>
-
-        <button class="toolButton" data-tool="laser">
-          🔴 Laser
-        </button>
-
-        <button class="toolButton" data-tool="ice-laser">
-          ❄️ Ice Laser
-        </button>
-
-        <button class="toolButton" data-tool="heat-beam">
-          🔥 Heat Beam
-        </button>
-
-        <button class="toolButton" data-tool="meteor">
-          ☄️ Meteor
-        </button>
-
-        <button class="toolButton" data-tool="ufo">
-          👽 UFO
-        </button>
-
-        <button class="toolButton mysteryButton" data-tool="mystery-matter">
-          🔮 Mystery Matter Gun
-        </button>
-
-      </aside>
-
-
-      <!-- Planet rendering area -->
-      <main id="planetCanvas" class="simulationCanvas">
-
-        <div class="simulationLabel">
-          SELECT A PLANET TO BEGIN
         </div>
 
-      </main>
+    </div>
 
 
-      <!-- Right information panel -->
-      <aside class="rightPanel">
+    <!-- =====================================================
+         GAME
+    ====================================================== -->
 
-        <h3>PLANET INFO</h3>
+    <main
+        id="game-container"
+        style="display: none;"
+    >
 
-        <div class="infoRow">
-          <span>TYPE</span>
-          <strong id="planetType">NONE</strong>
+        <canvas
+            id="game-canvas"
+            width="1280"
+            height="720"
+            aria-label="Universe Smash game canvas"
+        ></canvas>
+
+
+        <!-- =================================================
+             SOLAR SYSTEM MODE MENU
+        ================================================== -->
+
+        <div
+            id="sandbox-menu"
+            style="display: none;"
+        >
+
+            <div class="menu-section-title">
+                SOLAR SYSTEM
+            </div>
+
+            <button
+                id="spawn-star"
+                class="game-button"
+                type="button"
+            >
+                ⭐ STAR
+            </button>
+
+            <button
+                id="spawn-planet"
+                class="game-button"
+                type="button"
+            >
+                🌎 PLANET
+            </button>
+
+            <button
+                id="spawn-moon"
+                class="game-button"
+                type="button"
+            >
+                🌙 MOON
+            </button>
+
+            <button
+                id="spawn-asteroid"
+                class="game-button"
+                type="button"
+            >
+                ☄️ ASTEROID
+            </button>
+
+            <button
+                id="spawn-antimatter"
+                class="game-button"
+                type="button"
+            >
+                💜 ANTIMATTER WORLD
+            </button>
+
+            <button
+                id="spawn-black-hole"
+                class="game-button"
+                type="button"
+            >
+                🕳️ BLACK HOLE
+            </button>
+
+            <button
+                id="spawn-grey-hole"
+                class="game-button"
+                type="button"
+            >
+                🔴 GREY HOLE
+            </button>
+
+            <button
+                id="spawn-wormhole"
+                class="game-button"
+                type="button"
+            >
+                🌀 WORMHOLE
+            </button>
+
+            <button
+                id="reset-camera"
+                class="game-button"
+                type="button"
+            >
+                🎯 RESET CAMERA
+            </button>
+
+            <button
+                id="clear-system"
+                class="game-button"
+                type="button"
+            >
+                🗑️ CLEAR SYSTEM
+            </button>
+
+            <button
+                id="solar-menu"
+                class="game-button"
+                type="button"
+            >
+                ← MAIN MENU
+            </button>
+
         </div>
 
-        <div class="infoRow">
-          <span>HEALTH</span>
-          <strong id="planetHealth">100%</strong>
+
+        <!-- =================================================
+             PLANET MODE WEAPONS
+        ================================================== -->
+
+        <div
+            id="planet-weapon-menu"
+            style="display: none;"
+        >
+
+            <div class="menu-section-title">
+                PLANET MODE
+            </div>
+
+            <button
+                id="weapon-laser"
+                class="game-button"
+                type="button"
+            >
+                🔴 LASER
+            </button>
+
+            <button
+                id="weapon-ice-laser"
+                class="game-button"
+                type="button"
+            >
+                ❄️ ICE LASER
+            </button>
+
+            <button
+                id="weapon-asteroid"
+                class="game-button"
+                type="button"
+            >
+                ☄️ ASTEROID
+            </button>
+
+            <button
+                id="weapon-mystery"
+                class="game-button"
+                type="button"
+            >
+                ❓ MYSTERY MATTER
+            </button>
+
+            <button
+                id="weapon-alien"
+                class="game-button"
+                type="button"
+            >
+                👽 ALIEN SHIP
+            </button>
+
+            <button
+                id="weapon-antimatter"
+                class="game-button"
+                type="button"
+            >
+                💥 ANTIMATTER
+            </button>
+
+            <button
+                id="planet-menu"
+                class="game-button"
+                type="button"
+            >
+                ← MAIN MENU
+            </button>
+
         </div>
 
-        <div class="healthBar">
-          <div id="healthFill"></div>
+
+        <!-- =================================================
+             SETTINGS
+        ================================================== -->
+
+        <div
+            id="settings-panel"
+            style="display: none;"
+        >
+
+            <div class="settings-panel">
+
+                <div class="settings-title">
+                    SETTINGS
+                </div>
+
+                <button
+                    id="settings-close"
+                    class="game-button"
+                    type="button"
+                >
+                    CLOSE
+                </button>
+
+            </div>
+
         </div>
 
-        <hr>
 
-        <h3>MYSTERY EFFECT</h3>
+        <!-- =================================================
+             GAME INFORMATION
+        ================================================== -->
 
-        <p id="mysteryEffectText">
-          No effect active
-        </p>
+        <div
+            id="game-info"
+            style="display: none;"
+        >
 
-      </aside>
+            <div id="object-count">
+                Objects: 0
+            </div>
 
-    </section>
+            <div id="zoom-display">
+                Zoom: 100%
+            </div>
 
-
-    <!-- =========================
-         SOLAR SYSTEM MODE
-         ========================= -->
-    <section id="solarSystemScreen" class="gameScreen hidden">
-
-      <header class="topBar">
-
-        <button class="backButton" data-back="menu">
-          ← MENU
-        </button>
-
-        <h2>☀️ SOLAR SYSTEM</h2>
-
-        <div class="topStatus">
-          SANDBOX MODE
         </div>
 
-      </header>
+
+        <!-- =================================================
+             CROSSHAIR
+        ================================================== -->
+
+        <div
+            id="crosshair"
+            style="display: none;"
+        ></div>
 
 
-      <!-- Add object panel -->
-      <aside class="leftPanel">
+        <!-- =================================================
+             PAUSE MENU
+        ================================================== -->
 
-        <h3>ADD OBJECT</h3>
+        <div
+            id="pause-menu"
+            style="display: none;"
+        >
 
-        <button class="toolButton" data-object="star">
-          ⭐ Star
-        </button>
+            <div class="menu-container">
 
-        <button class="toolButton" data-object="planet">
-          🪐 Planet
-        </button>
+                <div class="menu-title">
+                    PAUSED
+                </div>
 
-        <button class="toolButton" data-object="moon">
-          🌕 Moon
-        </button>
+                <div class="menu-buttons">
 
-        <button class="toolButton" data-object="asteroid">
-          ☄️ Asteroid
-        </button>
+                    <button
+                        id="resume-button"
+                        class="menu-button"
+                        type="button"
+                    >
+                        RESUME
+                    </button>
 
-        <button class="toolButton" data-object="black-hole">
-          🕳️ Black Hole
-        </button>
+                    <button
+                        id="pause-menu-button"
+                        class="menu-button"
+                        type="button"
+                    >
+                        MAIN MENU
+                    </button>
 
-        <button class="toolButton" data-object="wormhole">
-          🌀 Wormhole
-        </button>
+                </div>
 
-        <button class="toolButton" data-object="grey-hole">
-          🩶 Grey Hole
-        </button>
+            </div>
 
-        <button class="toolButton" data-object="antimatter-planet">
-          🟣 Antimatter Planet
-        </button>
-
-      </aside>
-
-
-      <!-- Solar system rendering area -->
-      <main id="solarSystemCanvas" class="simulationCanvas">
-
-        <div class="simulationLabel">
-          BUILD YOUR OWN UNIVERSE
         </div>
 
-      </main>
+    </main>
 
 
-      <!-- System information -->
-      <aside class="rightPanel">
+    <!-- =====================================================
+         GAME ENGINE
+    ====================================================== -->
 
-        <h3>SYSTEM INFO</h3>
-
-        <div class="infoRow">
-          <span>OBJECTS</span>
-          <strong id="objectCount">0</strong>
-        </div>
-
-        <div class="infoRow">
-          <span>SIMULATION</span>
-          <strong id="simulationStatus">READY</strong>
-        </div>
-
-        <hr>
-
-        <h3>CAMERA</h3>
-
-        <button id="zoomInButton" class="cameraButton">
-          ➕ ZOOM IN
-        </button>
-
-        <button id="zoomOutButton" class="cameraButton">
-          ➖ ZOOM OUT
-        </button>
-
-        <button id="systemViewButton" class="cameraButton">
-          🎯 SYSTEM VIEW
-        </button>
-
-      </aside>
-
-    </section>
-
-
-    <!-- =========================
-         SETTINGS
-         ========================= -->
-    <section id="settingsScreen" class="screen hidden">
-
-      <div class="settingsPanel">
-
-        <button class="backButton" data-back="menu">
-          ← BACK
-        </button>
-
-        <h1>SETTINGS</h1>
-
-        <label>
-          Graphics Quality
-          <select id="graphicsQuality">
-            <option>Low</option>
-            <option selected>Medium</option>
-            <option>High</option>
-            <option>Ultra</option>
-          </select>
-        </label>
-
-        <label>
-          Effects
-          <select id="effectsQuality">
-            <option>Low</option>
-            <option selected>High</option>
-          </select>
-        </label>
-
-        <label>
-          Music Volume
-          <input id="musicVolume" type="range"
-                 min="0" max="100" value="50">
-        </label>
-
-        <label>
-          Sound Effects
-          <input id="soundVolume" type="range"
-                 min="0" max="100" value="70">
-        </label>
-
-      </div>
-
-    </section>
-
-  </div>
-
-
-  <!-- =========================
-       JAVASCRIPT MODULES
-       ========================= -->
-
-  <script type="module" src="./src/main.js"></script>
+    <script
+        type="module"
+        src="./src/main.js"
+    ></script>
 
 </body>
+
 </html>
