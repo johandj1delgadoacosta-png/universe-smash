@@ -1,18 +1,24 @@
-// ============================================================
-// UNIVERSE SMASH - MAIN CONTROLLER
-// ============================================================
+// src/main.js
+// Universe Smash - Main Game Controller
 
 import {
-    runStartup
+    runStartup,
+    finishStartup
 } from "./startup.js";
+
+import {
+    initializeMenu,
+    showMainMenu,
+    hideMenus
+} from "./menu.js";
 
 import {
     startPlanetMode,
     stopPlanetMode,
     updatePlanetMode,
     drawPlanetMode,
-    setPlanetModePaused,
-    resetPlanetMode
+    resetPlanetMode,
+    setPlanetModePaused
 } from "./modes/planet-mode.js";
 
 import {
@@ -20,9 +26,8 @@ import {
     stopSolarSystem,
     updateSolarSystem,
     drawSolarSystem,
-    createDefaultSolarSystem,
-    clearSolarSystem,
-    resetSolarSystem
+    resetSolarSystem,
+    setSolarSystemPaused
 } from "./modes/solar-system.js";
 
 import {
@@ -35,22 +40,17 @@ import {
 // GAME STATE
 // ============================================================
 
-const game = {
-    canvas: null,
-    ctx: null,
+let canvas = null;
+let ctx = null;
 
-    width: 0,
-    height: 0,
+let currentMode = "menu";
+let gameRunning = false;
+let paused = false;
 
-    currentMode: "menu",
+let lastTime = 0;
 
-    running: false,
-    paused: false,
-
-    lastTime: 0,
-
-    initialized: false
-};
+let canvasWidth = 0;
+let canvasHeight = 0;
 
 
 // ============================================================
@@ -61,21 +61,24 @@ function $(id) {
     return document.getElementById(id);
 }
 
+function show(id, display = "block") {
+    const element = $(id);
 
-function show(element) {
     if (!element) return;
 
-    element.style.display = "";
-    element.style.visibility = "visible";
-    element.style.opacity = "1";
-    element.style.pointerEvents = "auto";
+    element.style.display = display;
+    element.classList.remove("hidden");
+    element.classList.add("visible");
 }
 
+function hide(id) {
+    const element = $(id);
 
-function hide(element) {
     if (!element) return;
 
     element.style.display = "none";
+    element.classList.remove("visible");
+    element.classList.add("hidden");
 }
 
 
@@ -83,315 +86,177 @@ function hide(element) {
 // CANVAS
 // ============================================================
 
-function setupCanvas() {
-    game.canvas = $("game-canvas");
-
-    if (!game.canvas) {
-        console.error(
-            "Universe Smash: #game-canvas was not found."
-        );
-
-        return false;
-    }
-
-    game.ctx =
-        game.canvas.getContext("2d");
-
-    if (!game.ctx) {
-        console.error(
-            "Universe Smash: Canvas 2D context unavailable."
-        );
-
-        return false;
-    }
-
-    resizeCanvas();
-
-    window.addEventListener(
-        "resize",
-        resizeCanvas
-    );
-
-    return true;
-}
-
-
 function resizeCanvas() {
-    if (!game.canvas || !game.ctx) {
-        return;
-    }
+    if (!canvas) return;
 
-    const width =
-        window.innerWidth;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-    const height =
-        window.innerHeight;
+    canvasWidth = width;
+    canvasHeight = height;
 
-    const dpr =
-        Math.max(
-            1,
-            Math.min(
-                2,
-                window.devicePixelRatio || 1
-            )
-        );
+    const devicePixelRatio =
+        Math.max(1, Math.min(2, window.devicePixelRatio || 1));
 
-    game.width = width;
-    game.height = height;
+    canvas.width = Math.floor(width * devicePixelRatio);
+    canvas.height = Math.floor(height * devicePixelRatio);
 
-    game.canvas.width =
-        Math.floor(width * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
 
-    game.canvas.height =
-        Math.floor(height * dpr);
-
-    game.canvas.style.width =
-        `${width}px`;
-
-    game.canvas.style.height =
-        `${height}px`;
-
-    game.ctx.setTransform(
-        dpr,
-        0,
-        0,
-        dpr,
-        0,
-        0
-    );
-}
-
-
-// ============================================================
-// AUDIO
-// ============================================================
-
-function activateAudio() {
-    try {
-        resumeAudio();
-    } catch (error) {
-        console.warn(
-            "Universe Smash audio:",
-            error
+    if (ctx) {
+        ctx.setTransform(
+            devicePixelRatio,
+            0,
+            0,
+            devicePixelRatio,
+            0,
+            0
         );
     }
 }
 
 
 // ============================================================
-// MAIN MENU
+// INTERFACE
 // ============================================================
 
-function showMainMenu() {
-    const startup =
-        $("startup-screen");
-
-    const canvas =
-        $("game-canvas");
-
-    const info =
-        $("game-info");
-
-    const solarMenu =
-        $("sandbox-menu");
-
-    const weaponMenu =
-        $("planet-weapon-menu");
-
-    const settingsMenu =
-        $("settings-menu");
-
-    hide(startup);
-    hide(canvas);
-    hide(info);
-    hide(solarMenu);
-    hide(weaponMenu);
-    hide(settingsMenu);
-
-    const menu =
-        $("main-menu");
-
-    if (!menu) {
-        console.error(
-            "Universe Smash: #main-menu not found."
-        );
-
-        return;
-    }
-
-    menu.style.display = "flex";
-    menu.style.visibility = "visible";
-    menu.style.opacity = "1";
-    menu.style.pointerEvents = "auto";
-
-    menu.classList.add("active");
-
-    game.currentMode = "menu";
-    game.paused = false;
-
-    console.log(
-        "Universe Smash: Main menu displayed."
-    );
+function hideEverything() {
+    hide("main-menu");
+    hide("sandbox-menu");
+    hide("planet-weapon-menu");
+    hide("settings-menu");
+    hide("pause-menu");
+    hide("game-info");
 }
-
-
-// ============================================================
-// GAME INTERFACE
-// ============================================================
 
 function showGameInterface() {
-    const startup =
-        $("startup-screen");
+    hideEverything();
 
-    const menu =
-        $("main-menu");
+    if (!canvas) return;
 
-    const canvas =
-        $("game-canvas");
+    canvas.style.display = "block";
+    canvas.style.visibility = "visible";
+    canvas.style.opacity = "1";
 
-    const info =
-        $("game-info");
+    show("game-info", "block");
 
-    hide(startup);
-    hide(menu);
+    resizeCanvas();
+}
 
-    show(canvas);
-    show(info);
-
+function showMenuInterface() {
     if (canvas) {
-        canvas.style.position = "fixed";
-        canvas.style.left = "0";
-        canvas.style.top = "0";
-        canvas.style.zIndex = "1";
+        canvas.style.display = "none";
     }
 
-    if (info) {
-        info.style.zIndex = "20";
-    }
+    hide("sandbox-menu");
+    hide("planet-weapon-menu");
+    hide("settings-menu");
+    hide("pause-menu");
+    hide("game-info");
+
+    show("main-menu", "flex");
 }
 
 
 // ============================================================
-// GAME INFORMATION
+// CLEAR CANVAS
 // ============================================================
 
-function updateModeLabel(label) {
-    const element =
-        $("game-mode-label");
+function clearCanvas() {
+    if (!ctx) return;
 
-    if (element) {
-        element.textContent = label;
-    }
-}
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-
-function updatePauseButton() {
-    const button =
-        $("game-pause-button");
-
-    if (!button) return;
-
-    button.textContent =
-        game.paused
-            ? "RESUME"
-            : "PAUSE";
-}
-
-
-// ============================================================
-// PLANET MODE
-// ============================================================
-
-function launchPlanetMode() {
-    console.log(
-        "Universe Smash: Planet Mode"
+    ctx.fillStyle = "#02030a";
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
     );
 
-    activateAudio();
+    resizeCanvas();
+}
 
-    try {
-        stopSolarSystem();
-    } catch (error) {
-        console.warn(
-            "Solar System stop:",
-            error
-        );
-    }
 
-    game.currentMode = "planet";
-    game.paused = false;
+// ============================================================
+// START PLANET MODE
+// ============================================================
+
+function enterPlanetMode() {
+    console.log("Universe Smash: Starting Planet Mode");
+
+    currentMode = "planet";
+    paused = false;
+    gameRunning = true;
+
+    hideEverything();
 
     showGameInterface();
 
     try {
-        startPlanetMode(
-            game.canvas
-        );
+        startPlanetMode(canvas);
+
+        setPlanetModePaused(false);
+
+        console.log("Universe Smash: Planet Mode started");
     } catch (error) {
         console.error(
-            "Planet Mode startup error:",
+            "Universe Smash: Planet Mode start error:",
+            error
+        );
+
+        clearCanvas();
+
+        drawErrorMessage(
+            "PLANET MODE ERROR",
             error
         );
     }
 
-    updateModeLabel(
-        "PLANET MODE"
-    );
-
-    updatePauseButton();
+    resumeGameAudio();
 }
 
 
 // ============================================================
-// SOLAR SYSTEM MODE
+// START SOLAR SYSTEM MODE
 // ============================================================
 
-function launchSolarSystemMode() {
-    console.log(
-        "Universe Smash: Solar System Mode"
-    );
+function enterSolarSystemMode() {
+    console.log("Universe Smash: Starting Solar System Mode");
 
-    activateAudio();
+    currentMode = "solar";
+    paused = false;
+    gameRunning = true;
 
-    try {
-        stopPlanetMode();
-    } catch (error) {
-        console.warn(
-            "Planet Mode stop:",
-            error
-        );
-    }
-
-    game.currentMode = "solar";
-    game.paused = false;
+    hideEverything();
 
     showGameInterface();
 
     try {
-        startSolarSystem(
-            game.canvas
+        startSolarSystem(canvas);
+
+        setSolarSystemPaused(false);
+
+        console.log(
+            "Universe Smash: Solar System Mode started"
         );
     } catch (error) {
         console.error(
-            "Solar System startup error:",
+            "Universe Smash: Solar System start error:",
+            error
+        );
+
+        clearCanvas();
+
+        drawErrorMessage(
+            "SOLAR SYSTEM ERROR",
             error
         );
     }
 
-    try {
-        createDefaultSolarSystem();
-    } catch (error) {
-        console.warn(
-            "Default Solar System:",
-            error
-        );
-    }
-
-    updateModeLabel(
-        "SOLAR SYSTEM MODE"
-    );
-
-    updatePauseButton();
+    resumeGameAudio();
 }
 
 
@@ -400,79 +265,38 @@ function launchSolarSystemMode() {
 // ============================================================
 
 function returnToMainMenu() {
-    console.log(
-        "Universe Smash: Returning to menu."
-    );
+    console.log("Universe Smash: Returning to main menu");
+
+    gameRunning = false;
+    paused = false;
 
     try {
         stopPlanetMode();
     } catch (error) {
-        console.warn(error);
+        console.warn(
+            "Planet Mode stop warning:",
+            error
+        );
     }
 
     try {
         stopSolarSystem();
     } catch (error) {
-        console.warn(error);
+        console.warn(
+            "Solar System stop warning:",
+            error
+        );
     }
 
-    game.currentMode = "menu";
-    game.paused = false;
+    currentMode = "menu";
 
-    showMainMenu();
-}
+    hideEverything();
 
+    showMenuInterface();
 
-// ============================================================
-// SETTINGS
-// ============================================================
-
-function openSettings() {
-    activateAudio();
-
-    const menu =
-        $("main-menu");
-
-    if (!menu) return;
-
-    menu.style.display = "flex";
-    menu.style.visibility = "visible";
-    menu.style.opacity = "1";
-    menu.style.pointerEvents = "auto";
-
-    menu.innerHTML = `
-        <div class="main-menu-inner">
-
-            <div class="main-menu-title">
-                SETTINGS
-            </div>
-
-            <div class="main-menu-subtitle">
-                UNIVERSE SMASH
-            </div>
-
-            <div class="main-menu-buttons">
-
-                <button
-                    id="settings-back-button"
-                    class="menu-button"
-                    type="button"
-                >
-                    BACK
-                </button>
-
-            </div>
-
-        </div>
-    `;
-
-    const back =
-        $("settings-back-button");
-
-    if (back) {
-        back.onclick =
-            showMainMenu;
-    }
+    console.log(
+        "Universe Smash: Main menu displayed"
+    );
 }
 
 
@@ -481,218 +305,101 @@ function openSettings() {
 // ============================================================
 
 function togglePause() {
-    if (
-        game.currentMode === "menu"
-    ) {
-        return;
+    if (!gameRunning) return;
+
+    paused = !paused;
+
+    try {
+        setPlanetModePaused(paused);
+    } catch (_) {}
+
+    try {
+        setSolarSystemPaused(paused);
+    } catch (_) {}
+
+    if (paused) {
+        show("pause-menu", "flex");
+    } else {
+        hide("pause-menu");
     }
-
-    game.paused =
-        !game.paused;
-
-    if (
-        game.currentMode === "planet"
-    ) {
-        try {
-            setPlanetModePaused(
-                game.paused
-            );
-        } catch (error) {
-            console.warn(
-                "Planet pause:",
-                error
-            );
-        }
-    }
-
-    /*
-     * Solar System pause is handled
-     * by the main controller's game loop.
-     *
-     * We intentionally DO NOT call
-     * setSolarSystemPaused because that
-     * function is not exported.
-     */
-
-    updatePauseButton();
 
     console.log(
-        game.paused
-            ? "Universe Smash: PAUSED"
-            : "Universe Smash: RESUMED"
+        `Universe Smash: ${paused ? "Paused" : "Resumed"}`
     );
 }
 
 
 // ============================================================
-// RESET
+// AUDIO
 // ============================================================
 
-function resetCurrentMode() {
-    if (
-        game.currentMode === "planet"
-    ) {
-        try {
-            resetPlanetMode();
-        } catch (error) {
-            console.warn(
-                "Planet reset:",
-                error
-            );
-        }
-
-        return;
-    }
-
-    if (
-        game.currentMode === "solar"
-    ) {
-        try {
-            resetSolarSystem();
-        } catch (error) {
-            console.warn(
-                "Solar reset:",
-                error
-            );
-        }
-
-        try {
-            createDefaultSolarSystem();
-        } catch (error) {
-            console.warn(
-                "Solar default system:",
-                error
-            );
-        }
+function resumeGameAudio() {
+    try {
+        resumeAudio();
+    } catch (error) {
+        console.warn(
+            "Audio resume warning:",
+            error
+        );
     }
 }
 
 
 // ============================================================
-// MAIN MENU BUTTONS
+// ERROR DISPLAY
 // ============================================================
 
-function setupMainMenuButtons() {
-    const planet =
-        $("planet-mode-button");
+function drawErrorMessage(title, error) {
+    if (!ctx) return;
 
-    const solar =
-        $("solar-system-button");
+    resizeCanvas();
 
-    const settings =
-        $("settings-button");
+    const message =
+        error && error.message
+            ? error.message
+            : String(error);
 
-    if (planet) {
-        planet.onclick = () => {
-            activateAudio();
-            launchPlanetMode();
-        };
-    }
+    ctx.save();
 
-    if (solar) {
-        solar.onclick = () => {
-            activateAudio();
-            launchSolarSystemMode();
-        };
-    }
-
-    if (settings) {
-        settings.onclick = () => {
-            activateAudio();
-            openSettings();
-        };
-    }
-
-    console.log(
-        "Universe Smash: Main menu buttons ready."
+    ctx.fillStyle = "#02030a";
+    ctx.fillRect(
+        0,
+        0,
+        canvasWidth,
+        canvasHeight
     );
-}
 
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
-// ============================================================
-// SOLAR SYSTEM BUTTONS
-// ============================================================
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 28px Arial";
 
-function setupSolarButtons() {
-    const reset =
-        $("reset-solar-system");
+    ctx.fillText(
+        title,
+        canvasWidth / 2,
+        canvasHeight / 2 - 35
+    );
 
-    const clear =
-        $("clear-solar-system");
+    ctx.fillStyle = "#9fb7d8";
+    ctx.font = "16px Arial";
 
-    const menu =
-        $("solar-main-menu");
+    ctx.fillText(
+        message,
+        canvasWidth / 2,
+        canvasHeight / 2 + 5
+    );
 
-    if (reset) {
-        reset.onclick = () => {
-            activateAudio();
-            resetCurrentMode();
-        };
-    }
+    ctx.fillStyle = "#6fa8ff";
+    ctx.font = "15px Arial";
 
-    if (clear) {
-        clear.onclick = () => {
-            activateAudio();
+    ctx.fillText(
+        "Press ESC to return to the main menu",
+        canvasWidth / 2,
+        canvasHeight / 2 + 45
+    );
 
-            try {
-                clearSolarSystem();
-            } catch (error) {
-                console.error(
-                    "Clear Solar System:",
-                    error
-                );
-            }
-        };
-    }
-
-    if (menu) {
-        menu.onclick = () => {
-            returnToMainMenu();
-        };
-    }
-}
-
-
-// ============================================================
-// PLANET MENU BUTTON
-// ============================================================
-
-function setupPlanetButtons() {
-    const menu =
-        $("planet-main-menu");
-
-    if (menu) {
-        menu.onclick = () => {
-            returnToMainMenu();
-        };
-    }
-}
-
-
-// ============================================================
-// GAME BUTTONS
-// ============================================================
-
-function setupGameButtons() {
-    const pause =
-        $("game-pause-button");
-
-    const menu =
-        $("game-menu-button");
-
-    if (pause) {
-        pause.onclick = () => {
-            activateAudio();
-            togglePause();
-        };
-    }
-
-    if (menu) {
-        menu.onclick = () => {
-            activateAudio();
-            returnToMainMenu();
-        };
-    }
+    ctx.restore();
 }
 
 
@@ -701,216 +408,186 @@ function setupGameButtons() {
 // ============================================================
 
 function setupKeyboard() {
+    document.addEventListener("keydown", (event) => {
+
+        // ESC = main menu
+        if (event.code === "Escape") {
+            event.preventDefault();
+
+            if (currentMode !== "menu") {
+                returnToMainMenu();
+            }
+
+            return;
+        }
+
+        // P = pause
+        if (event.code === "KeyP") {
+            event.preventDefault();
+
+            togglePause();
+
+            return;
+        }
+
+        // SPACE = pause
+        if (
+            event.code === "Space" &&
+            currentMode !== "menu"
+        ) {
+            event.preventDefault();
+
+            togglePause();
+
+            return;
+        }
+
+        // R = reset current mode
+        if (event.code === "KeyR") {
+            event.preventDefault();
+
+            if (currentMode === "planet") {
+                try {
+                    resetPlanetMode();
+                } catch (error) {
+                    console.error(
+                        "Planet reset error:",
+                        error
+                    );
+                }
+            }
+
+            if (currentMode === "solar") {
+                try {
+                    resetSolarSystem();
+                } catch (error) {
+                    console.error(
+                        "Solar System reset error:",
+                        error
+                    );
+                }
+            }
+        }
+    });
+}
+
+
+// ============================================================
+// MOUSE / TOUCH AUDIO UNLOCK
+// ============================================================
+
+function setupAudioUnlock() {
+    const unlock = () => {
+        resumeGameAudio();
+
+        window.removeEventListener(
+            "pointerdown",
+            unlock
+        );
+
+        window.removeEventListener(
+            "keydown",
+            unlock
+        );
+    };
+
+    window.addEventListener(
+        "pointerdown",
+        unlock,
+        { once: true }
+    );
+
     window.addEventListener(
         "keydown",
-        event => {
-
-            const key =
-                event.key.toLowerCase();
-
-            if (key === "escape") {
-
-                if (
-                    game.currentMode !== "menu"
-                ) {
-                    returnToMainMenu();
-                }
-
-                return;
-            }
-
-            if (
-                key === "p" ||
-                key === " "
-            ) {
-
-                if (
-                    game.currentMode !== "menu"
-                ) {
-                    event.preventDefault();
-                    togglePause();
-                }
-
-                return;
-            }
-
-            if (key === "r") {
-
-                if (
-                    game.currentMode !== "menu"
-                ) {
-                    resetCurrentMode();
-                }
-            }
-        }
+        unlock,
+        { once: true }
     );
 }
 
 
 // ============================================================
-// MOUSE / TOUCH AUDIO ACTIVATION
+// MENU BUTTONS
 // ============================================================
 
-function setupCanvasInput() {
-    if (!game.canvas) return;
+function setupMenuButtons() {
 
-    game.canvas.addEventListener(
-        "pointerdown",
-        () => {
-            activateAudio();
-        }
-    );
-}
+    const planetButton = $("planet-mode-button");
 
-
-// ============================================================
-// INITIALIZE
-// ============================================================
-
-async function initializeGame() {
-    if (game.initialized) {
-        return true;
-    }
-
-    console.log(
-        "Universe Smash: Initializing..."
-    );
-
-    if (!setupCanvas()) {
-        return false;
-    }
-
-    setupMainMenuButtons();
-    setupSolarButtons();
-    setupPlanetButtons();
-    setupGameButtons();
-    setupKeyboard();
-    setupCanvasInput();
-
-    try {
-        initAudio();
-    } catch (error) {
-        console.warn(
-            "Audio initialization:",
-            error
+    if (planetButton) {
+        planetButton.addEventListener(
+            "click",
+            () => {
+                enterPlanetMode();
+            }
         );
     }
 
-    game.initialized = true;
+    const solarButton = $("solar-system-button");
 
-    console.log(
-        "Universe Smash: Initialization complete."
-    );
-
-    return true;
-}
-
-
-// ============================================================
-// UPDATE
-// ============================================================
-
-function updateGame(deltaTime) {
-    if (
-        game.currentMode === "planet"
-    ) {
-        try {
-            updatePlanetMode(
-                deltaTime
-            );
-        } catch (error) {
-            console.error(
-                "Planet update error:",
-                error
-            );
-        }
-
-        return;
+    if (solarButton) {
+        solarButton.addEventListener(
+            "click",
+            () => {
+                enterSolarSystemMode();
+            }
+        );
     }
 
-    if (
-        game.currentMode === "solar"
-    ) {
-        try {
-            updateSolarSystem(
-                deltaTime
-            );
-        } catch (error) {
-            console.error(
-                "Solar update error:",
-                error
-            );
-        }
-    }
-}
+    const sandboxButton = $("sandbox-mode-button");
 
-
-// ============================================================
-// DRAW
-// ============================================================
-
-function drawGame() {
-    if (!game.ctx) {
-        return;
+    if (sandboxButton) {
+        sandboxButton.addEventListener(
+            "click",
+            () => {
+                enterSolarSystemMode();
+            }
+        );
     }
 
-    if (
-        game.currentMode === "menu"
-    ) {
-        return;
+    const mainMenuButton = $("main-menu-button");
+
+    if (mainMenuButton) {
+        mainMenuButton.addEventListener(
+            "click",
+            () => {
+                returnToMainMenu();
+            }
+        );
     }
 
-    game.ctx.clearRect(
-        0,
-        0,
-        game.width,
-        game.height
-    );
+    const backButton = $("back-button");
 
-    game.ctx.fillStyle =
-        "#000000";
-
-    game.ctx.fillRect(
-        0,
-        0,
-        game.width,
-        game.height
-    );
-
-    if (
-        game.currentMode === "planet"
-    ) {
-        try {
-            drawPlanetMode(
-                game.ctx,
-                game.width,
-                game.height
-            );
-        } catch (error) {
-            console.error(
-                "Planet draw error:",
-                error
-            );
-        }
-
-        return;
+    if (backButton) {
+        backButton.addEventListener(
+            "click",
+            () => {
+                returnToMainMenu();
+            }
+        );
     }
 
-    if (
-        game.currentMode === "solar"
-    ) {
-        try {
-            drawSolarSystem(
-                game.ctx,
-                game.width,
-                game.height
-            );
-        } catch (error) {
-            console.error(
-                "Solar draw error:",
-                error
-            );
-        }
+    const resumeButton = $("resume-button");
+
+    if (resumeButton) {
+        resumeButton.addEventListener(
+            "click",
+            () => {
+                if (paused) {
+                    togglePause();
+                }
+            }
+        );
+    }
+
+    const pauseMenuButton = $("pause-menu-button");
+
+    if (pauseMenuButton) {
+        pauseMenuButton.addEventListener(
+            "click",
+            () => {
+                returnToMainMenu();
+            }
+        );
     }
 }
 
@@ -920,32 +597,131 @@ function drawGame() {
 // ============================================================
 
 function gameLoop(timestamp) {
-    if (!game.lastTime) {
-        game.lastTime = timestamp;
+
+    if (!lastTime) {
+        lastTime = timestamp;
     }
 
     const deltaTime =
         Math.min(
-            0.05,
-            (timestamp - game.lastTime) / 1000
+            (timestamp - lastTime) / 1000,
+            0.05
         );
 
-    game.lastTime = timestamp;
+    lastTime = timestamp;
 
-    if (
-        game.running &&
-        !game.paused &&
-        game.currentMode !== "menu"
-    ) {
-        updateGame(
-            deltaTime
+    if (gameRunning && !paused) {
+
+        try {
+
+            if (currentMode === "planet") {
+                updatePlanetMode(deltaTime);
+            }
+
+            if (currentMode === "solar") {
+                updateSolarSystem(deltaTime);
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Universe Smash: Update error:",
+                error
+            );
+        }
+    }
+
+    if (gameRunning) {
+
+        try {
+
+            if (currentMode === "planet") {
+                drawPlanetMode(ctx);
+            }
+
+            if (currentMode === "solar") {
+                drawSolarSystem(ctx);
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Universe Smash: Draw error:",
+                error
+            );
+
+            drawErrorMessage(
+                "RENDER ERROR",
+                error
+            );
+        }
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+async function initializeGame() {
+
+    console.log(
+        "Universe Smash: Initializing..."
+    );
+
+    canvas = $("game-canvas");
+
+    if (!canvas) {
+        console.error(
+            "Universe Smash: #game-canvas was not found."
+        );
+
+        return;
+    }
+
+    ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+        console.error(
+            "Universe Smash: Could not create 2D canvas context."
+        );
+
+        return;
+    }
+
+    resizeCanvas();
+
+    window.addEventListener(
+        "resize",
+        resizeCanvas
+    );
+
+    setupKeyboard();
+    setupAudioUnlock();
+    setupMenuButtons();
+
+    try {
+        initAudio();
+    } catch (error) {
+        console.warn(
+            "Audio initialization warning:",
+            error
         );
     }
 
-    drawGame();
+    try {
+        initializeMenu();
+    } catch (error) {
+        console.warn(
+            "Menu initialization warning:",
+            error
+        );
+    }
 
-    requestAnimationFrame(
-        gameLoop
+    console.log(
+        "Universe Smash: Main menu buttons ready."
     );
 }
 
@@ -955,81 +731,43 @@ function gameLoop(timestamp) {
 // ============================================================
 
 async function bootGame() {
+
     console.log(
         "Universe Smash: Booting..."
     );
 
+    await initializeGame();
+
     try {
-        const initialized =
-            await initializeGame();
-
-        if (!initialized) {
-            console.error(
-                "Universe Smash: Initialization failed."
-            );
-
-            return;
-        }
-
-        try {
-            await runStartup();
-        } catch (error) {
-            console.warn(
-                "Startup warning:",
-                error
-            );
-        }
-
-        /*
-         * Startup is finished.
-         * Show the actual main menu.
-         */
-
-        setupMainMenuButtons();
-
-        showMainMenu();
-
-        game.running = true;
-        game.lastTime = 0;
-
-        requestAnimationFrame(
-            gameLoop
-        );
-
-        console.log(
-            "================================"
-        );
-
-        console.log(
-            "UNIVERSE SMASH READY!"
-        );
-
-        console.log(
-            "================================"
-        );
-
+        await runStartup();
     } catch (error) {
-
         console.error(
-            "UNIVERSE SMASH BOOT ERROR:",
+            "Startup error:",
             error
         );
-
-        /*
-         * Emergency fallback:
-         * even if startup has a problem,
-         * try to display the menu.
-         */
-
-        try {
-            showMainMenu();
-        } catch (menuError) {
-            console.error(
-                "Emergency menu error:",
-                menuError
-            );
-        }
     }
+
+    finishStartup();
+
+    currentMode = "menu";
+    gameRunning = false;
+    paused = false;
+
+    showMenuInterface();
+
+    console.log(
+        "================================"
+    );
+
+    console.log(
+        "UNIVERSE SMASH READY!"
+    );
+
+    console.log(
+        "================================"
+    );
+
+    requestAnimationFrame(gameLoop);
 }
 
 
@@ -1039,42 +777,23 @@ async function bootGame() {
 
 window.UniverseSmash = {
 
-    game,
+    enterPlanetMode,
 
-    initializeGame,
-
-    startPlanetMode:
-        launchPlanetMode,
-
-    startSolarSystem:
-        launchSolarSystemMode,
+    enterSolarSystemMode,
 
     returnToMainMenu,
 
     togglePause,
 
-    resetCurrentMode,
+    resizeCanvas,
 
-    openSettings
+    getCurrentMode: () => currentMode,
+
+    isPaused: () => paused,
+
+    isRunning: () => gameRunning
 };
 
 
-// ============================================================
-// START
-// ============================================================
-
-if (
-    document.readyState === "loading"
-) {
-
-    document.addEventListener(
-        "DOMContentLoaded",
-        bootGame,
-        { once: true }
-    );
-
-} else {
-
-    bootGame();
-
-}
+// Start game
+bootGame();
