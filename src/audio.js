@@ -1,305 +1,321 @@
-// =========================================
-// UNIVERSE SMASH
-// AUDIO SYSTEM
-// =========================================
+// src/audio.js
 
-const AudioSystem = {
+let audioContext = null;
+let masterGain = null;
+let enabled = true;
+let initialized = false;
 
-  musicVolume: 0.35,
-  soundVolume: 0.7,
+function createAudioContext() {
+    if (audioContext) return audioContext;
 
-  muted: false,
+    const AudioContextClass =
+        window.AudioContext ||
+        window.webkitAudioContext;
 
-  currentMusic: null,
-
-  sounds: {},
-
-
-  // -----------------------------------------
-  // INITIALIZE
-  // -----------------------------------------
-
-  init() {
-
-    console.log("🔊 Universe Smash Audio System Ready");
-
-  },
-
-
-  // -----------------------------------------
-  // LOAD A SOUND
-  // -----------------------------------------
-
-  loadSound(name, path, volume = 1) {
-
-    const audio = new Audio(path);
-
-    audio.preload = "auto";
-
-    audio.volume =
-      volume * this.soundVolume;
-
-
-    this.sounds[name] = audio;
-
-  },
-
-
-  // -----------------------------------------
-  // PLAY SOUND EFFECT
-  // -----------------------------------------
-
-  play(name) {
-
-    if (this.muted) return;
-
-    const sound =
-      this.sounds[name];
-
-    if (!sound) {
-
-      console.warn(
-        `Sound not loaded: ${name}`
-      );
-
-      return;
-
+    if (!AudioContextClass) {
+        enabled = false;
+        return null;
     }
 
+    audioContext = new AudioContextClass();
 
-    // Clone allows the same sound
-    // to play multiple times at once
+    masterGain =
+        audioContext.createGain();
 
-    const soundClone =
-      sound.cloneNode();
+    masterGain.gain.value = 0.25;
 
+    masterGain.connect(
+        audioContext.destination
+    );
 
-    soundClone.volume =
-      sound.volume;
+    initialized = true;
 
-
-    soundClone.play()
-      .catch(() => {
-
-        // Browsers may block audio
-        // before the player interacts.
-
-      });
-
-  },
-
-
-  // -----------------------------------------
-  // PLAY MUSIC
-  // -----------------------------------------
-
-  playMusic(path) {
-
-    if (this.muted) return;
-
-
-    this.stopMusic();
-
-
-    const music =
-      new Audio(path);
-
-
-    music.loop = true;
-
-    music.volume =
-      this.musicVolume;
-
-
-    music.play()
-      .catch(() => {
-
-        console.log(
-          "Music will begin after player interaction."
-        );
-
-      });
-
-
-    this.currentMusic =
-      music;
-
-  },
-
-
-  // -----------------------------------------
-  // STOP MUSIC
-  // -----------------------------------------
-
-  stopMusic() {
-
-    if (!this.currentMusic) return;
-
-
-    this.currentMusic.pause();
-
-    this.currentMusic.currentTime = 0;
-
-    this.currentMusic = null;
-
-  },
-
-
-  // -----------------------------------------
-  // SET MUSIC VOLUME
-  // -----------------------------------------
-
-  setMusicVolume(volume) {
-
-    this.musicVolume =
-      Math.max(
-        0,
-        Math.min(1, volume)
-      );
-
-
-    if (this.currentMusic) {
-
-      this.currentMusic.volume =
-        this.musicVolume;
-
-    }
-
-  },
-
-
-  // -----------------------------------------
-  // SET SOUND VOLUME
-  // -----------------------------------------
-
-  setSoundVolume(volume) {
-
-    this.soundVolume =
-      Math.max(
-        0,
-        Math.min(1, volume)
-      );
-
-
-    Object.values(this.sounds)
-      .forEach(sound => {
-
-        sound.volume =
-          this.soundVolume;
-
-      });
-
-  },
-
-
-  // -----------------------------------------
-  // TOGGLE MUTE
-  // -----------------------------------------
-
-  toggleMute() {
-
-    this.muted =
-      !this.muted;
-
-
-    if (
-      this.currentMusic
-    ) {
-
-      this.currentMusic.muted =
-        this.muted;
-
-    }
-
-
-    Object.values(this.sounds)
-      .forEach(sound => {
-
-        sound.muted =
-          this.muted;
-
-      });
-
-
-    return this.muted;
-
-  },
-
-
-  // -----------------------------------------
-  // DESTROY
-  // -----------------------------------------
-
-  destroy() {
-
-    this.stopMusic();
-
-    this.sounds = {};
-
-  }
-
-};
-
-
-// =========================================
-// DEFAULT SOUND FILES
-// =========================================
-
-export function loadDefaultSounds() {
-
-  AudioSystem.loadSound(
-    "click",
-    "assets/audio/click.mp3",
-    0.5
-  );
-
-
-  AudioSystem.loadSound(
-    "explosion",
-    "assets/audio/explosion.mp3",
-    0.8
-  );
-
-
-  AudioSystem.loadSound(
-    "laser",
-    "assets/audio/laser.mp3",
-    0.6
-  );
-
-
-  AudioSystem.loadSound(
-    "ice-laser",
-    "assets/audio/ice-laser.mp3",
-    0.6
-  );
-
-
-  AudioSystem.loadSound(
-    "black-hole",
-    "assets/audio/black-hole.mp3",
-    0.7
-  );
-
-
-  AudioSystem.loadSound(
-    "wormhole",
-    "assets/audio/wormhole.mp3",
-    0.7
-  );
-
-
-  AudioSystem.loadSound(
-    "antimatter",
-    "assets/audio/antimatter.mp3",
-    0.9
-  );
-
+    return audioContext;
 }
 
+export function initAudio() {
+    const ctx = createAudioContext();
 
-// =========================================
-// EXPORT
-// =========================================
+    if (!ctx) return false;
 
-export default AudioSystem;
+    if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+    }
+
+    return true;
+}
+
+export function enableAudio() {
+    enabled = true;
+    initAudio();
+}
+
+export function disableAudio() {
+    enabled = false;
+}
+
+export function isAudioEnabled() {
+    return enabled;
+}
+
+function playTone({
+    frequency = 440,
+    duration = 0.15,
+    type = "sine",
+    volume = 0.15,
+    slideTo = null
+} = {}) {
+    if (!enabled) return;
+
+    const ctx = createAudioContext();
+
+    if (!ctx || !masterGain) return;
+
+    if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+    }
+
+    const oscillator =
+        ctx.createOscillator();
+
+    const gain =
+        ctx.createGain();
+
+    oscillator.type = type;
+
+    oscillator.frequency.setValueAtTime(
+        frequency,
+        ctx.currentTime
+    );
+
+    if (slideTo !== null) {
+        oscillator.frequency.exponentialRampToValueAtTime(
+            Math.max(1, slideTo),
+            ctx.currentTime + duration
+        );
+    }
+
+    gain.gain.setValueAtTime(
+        0.0001,
+        ctx.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, volume),
+        ctx.currentTime + 0.01
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        ctx.currentTime + duration
+    );
+
+    oscillator.connect(gain);
+    gain.connect(masterGain);
+
+    oscillator.start();
+
+    oscillator.stop(
+        ctx.currentTime + duration + 0.02
+    );
+}
+
+export function playClickSound() {
+    playTone({
+        frequency: 520,
+        duration: 0.07,
+        type: "square",
+        volume: 0.08,
+        slideTo: 700
+    });
+}
+
+export function playLaserSound() {
+    playTone({
+        frequency: 900,
+        duration: 0.18,
+        type: "sawtooth",
+        volume: 0.07,
+        slideTo: 180
+    });
+}
+
+export function playExplosionSound() {
+    const ctx = createAudioContext();
+
+    if (!enabled || !ctx || !masterGain) {
+        return;
+    }
+
+    const oscillator =
+        ctx.createOscillator();
+
+    const gain =
+        ctx.createGain();
+
+    oscillator.type = "sawtooth";
+
+    oscillator.frequency.setValueAtTime(
+        90,
+        ctx.currentTime
+    );
+
+    oscillator.frequency.exponentialRampToValueAtTime(
+        25,
+        ctx.currentTime + 0.5
+    );
+
+    gain.gain.setValueAtTime(
+        0.0001,
+        ctx.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.18,
+        ctx.currentTime + 0.02
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        ctx.currentTime + 0.5
+    );
+
+    oscillator.connect(gain);
+    gain.connect(masterGain);
+
+    oscillator.start();
+
+    oscillator.stop(
+        ctx.currentTime + 0.52
+    );
+}
+
+export function playBlackHoleSound() {
+    playTone({
+        frequency: 65,
+        duration: 0.7,
+        type: "sine",
+        volume: 0.1,
+        slideTo: 28
+    });
+}
+
+export function playWormholeSound() {
+    playTone({
+        frequency: 220,
+        duration: 0.5,
+        type: "triangle",
+        volume: 0.08,
+        slideTo: 880
+    });
+}
+
+export function playAntimatterSound() {
+    playTone({
+        frequency: 700,
+        duration: 0.35,
+        type: "square",
+        volume: 0.08,
+        slideTo: 70
+    });
+}
+
+export function playSpawnSound() {
+    playTone({
+        frequency: 330,
+        duration: 0.12,
+        type: "triangle",
+        volume: 0.06,
+        slideTo: 660
+    });
+}
+
+export function playMenuSound() {
+    playTone({
+        frequency: 440,
+        duration: 0.1,
+        type: "triangle",
+        volume: 0.05,
+        slideTo: 660
+    });
+}
+
+export function playErrorSound() {
+    playTone({
+        frequency: 120,
+        duration: 0.2,
+        type: "square",
+        volume: 0.06,
+        slideTo: 70
+    });
+}
+
+export function setMasterVolume(volume) {
+    const ctx = createAudioContext();
+
+    if (!ctx || !masterGain) return;
+
+    const safeVolume =
+        Math.max(
+            0,
+            Math.min(1, Number(volume) || 0)
+        );
+
+    masterGain.gain.setValueAtTime(
+        safeVolume,
+        ctx.currentTime
+    );
+}
+
+export function getMasterVolume() {
+    if (!masterGain) return 0.25;
+
+    return masterGain.gain.value;
+}
+
+export async function resumeAudio() {
+    const ctx = createAudioContext();
+
+    if (!ctx) return;
+
+    if (ctx.state === "suspended") {
+        await ctx.resume();
+    }
+}
+
+export function loadDefaultSounds() {
+    initAudio();
+
+    return {
+        click: playClickSound,
+        laser: playLaserSound,
+        explosion: playExplosionSound,
+        blackHole: playBlackHoleSound,
+        wormhole: playWormholeSound,
+        antimatter: playAntimatterSound,
+        spawn: playSpawnSound,
+        menu: playMenuSound,
+        error: playErrorSound
+    };
+}
+
+export function destroyAudio() {
+    if (audioContext) {
+        audioContext.close().catch(() => {});
+    }
+
+    audioContext = null;
+    masterGain = null;
+    initialized = false;
+}
+
+export function getAudioState() {
+    return {
+        enabled,
+        initialized,
+        state: audioContext
+            ? audioContext.state
+            : "uninitialized",
+        volume: getMasterVolume()
+    };
+}
