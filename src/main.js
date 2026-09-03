@@ -1,5 +1,15 @@
-import { runStartup } from "./startup.js";
-import { showMainMenu } from "./menu.js";
+// ============================================
+// UNIVERSE SMASH
+// MAIN GAME CONTROLLER
+// ============================================
+
+import {
+    runStartup
+} from "./startup.js";
+
+import {
+    showMainMenu
+} from "./menu.js";
 
 import {
     startPlanetMode,
@@ -13,269 +23,837 @@ import {
     stopSolarSystem,
     updateSolarSystem,
     drawSolarSystem,
-    resetSolarCamera
+    createDefaultSolarSystem
 } from "./modes/solar-system.js";
 
+import {
+    initAudio,
+    enableAudio,
+    disableAudio,
+    isAudioEnabled,
+    setMasterVolume,
+    getMasterVolume
+} from "./audio.js";
 
-const canvas = document.getElementById("game-canvas");
-const ctx = canvas.getContext("2d");
 
-let currentMode = "menu";
+// ============================================
+// GAME STATE
+// ============================================
 
-let paused = false;
+const game = {
+    canvas: null,
+    ctx: null,
 
-let lastTime = performance.now();
+    currentMode: "menu",
 
+    running: false,
+
+    paused: false,
+
+    lastTime: 0,
+
+    width: 0,
+    height: 0
+};
+
+
+// ============================================
+// INITIALIZE
+// ============================================
+
+function initializeGame() {
+    game.canvas =
+        document.getElementById(
+            "game-canvas"
+        );
+
+    if (!game.canvas) {
+        console.error(
+            "Universe Smash: game canvas not found."
+        );
+
+        return false;
+    }
+
+    game.ctx =
+        game.canvas.getContext("2d");
+
+    if (!game.ctx) {
+        console.error(
+            "Universe Smash: unable to create canvas context."
+        );
+
+        return false;
+    }
+
+    resizeCanvas();
+
+    window.addEventListener(
+        "resize",
+        resizeCanvas
+    );
+
+    initializeAudio();
+
+    attachMainControls();
+
+    game.running = true;
+
+    return true;
+}
+
+
+// ============================================
+// AUDIO
+// ============================================
+
+function initializeAudio() {
+    try {
+        initAudio();
+
+        // Audio starts disabled until
+        // the browser allows audio playback.
+        if (isAudioEnabled()) {
+            enableAudio();
+        }
+    } catch (error) {
+        console.warn(
+            "Audio initialization failed:",
+            error
+        );
+    }
+}
+
+
+// ============================================
+// RESIZE
+// ============================================
 
 function resizeCanvas() {
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-
-window.addEventListener(
-    "resize",
-    resizeCanvas
-);
-
-resizeCanvas();
-
-
-export function showGameUI() {
-
-    document.getElementById("game-info").style.display =
-        "block";
-}
-
-
-export function hideGameUI() {
-
-    document.getElementById("game-info").style.display =
-        "none";
-}
-
-
-export function updateGameInfo(objectCount, zoom, mode) {
-
-    const count =
-        document.getElementById("object-count");
-
-    const zoomDisplay =
-        document.getElementById("zoom-display");
-
-    const modeDisplay =
-        document.getElementById("mode-display");
-
-    if (count) {
-        count.textContent =
-            `Objects: ${objectCount}`;
-    }
-
-    if (zoomDisplay) {
-        zoomDisplay.textContent =
-            `Zoom: ${Math.round(zoom * 100)}%`;
-    }
-
-    if (modeDisplay) {
-        modeDisplay.textContent =
-            mode;
-    }
-}
-
-
-export function openMainMenu() {
-
-    currentMode = "menu";
-
-    paused = false;
-
-    stopPlanetMode();
-    stopSolarSystem();
-
-    document.getElementById(
-        "main-menu"
-    ).style.display = "flex";
-
-    document.getElementById(
-        "sandbox-menu"
-    ).style.display = "none";
-
-    document.getElementById(
-        "planet-weapon-menu"
-    ).style.display = "none";
-
-    hideGameUI();
-}
-
-
-function startPlanet() {
-
-    currentMode = "planet";
-
-    document.getElementById(
-        "main-menu"
-    ).style.display = "none";
-
-    document.getElementById(
-        "planet-weapon-menu"
-    ).style.display = "block";
-
-    document.getElementById(
-        "sandbox-menu"
-    ).style.display = "none";
-
-    showGameUI();
-
-    startPlanetMode(
-        canvas,
-        ctx,
-        openMainMenu
-    );
-}
-
-
-function startSolar() {
-
-    currentMode = "solar";
-
-    document.getElementById(
-        "main-menu"
-    ).style.display = "none";
-
-    document.getElementById(
-        "planet-weapon-menu"
-    ).style.display = "none";
-
-    document.getElementById(
-        "sandbox-menu"
-    ).style.display = "block";
-
-    showGameUI();
-
-    startSolarSystem(
-        canvas,
-        ctx,
-        openMainMenu
-    );
-}
-
-
-function setupMenu() {
-
-    showMainMenu({
-
-        onPlanetMode: startPlanet,
-
-        onSolarSystem: startSolar
-    });
-}
-
-
-window.addEventListener(
-    "keydown",
-    event => {
-
-        if (event.key === "Escape") {
-
-            if (
-                currentMode === "planet" ||
-                currentMode === "solar"
-            ) {
-
-                openMainMenu();
-            }
-        }
-
-        if (event.key.toLowerCase() === "p") {
-
-            if (
-                currentMode === "planet" ||
-                currentMode === "solar"
-            ) {
-
-                paused = !paused;
-            }
-        }
-
-        if (
-            currentMode === "solar" &&
-            event.key.toLowerCase() === "r"
-        ) {
-
-            resetSolarCamera();
-        }
-    }
-);
-
-
-function update(deltaTime) {
-
-    if (paused) {
+    if (!game.canvas) {
         return;
     }
 
-    if (currentMode === "planet") {
+    const width =
+        window.innerWidth;
 
-        updatePlanetMode(deltaTime);
+    const height =
+        window.innerHeight;
+
+    const devicePixelRatio =
+        Math.min(
+            window.devicePixelRatio || 1,
+            2
+        );
+
+    game.width = width;
+    game.height = height;
+
+    game.canvas.width =
+        width * devicePixelRatio;
+
+    game.canvas.height =
+        height * devicePixelRatio;
+
+    game.canvas.style.width =
+        `${width}px`;
+
+    game.canvas.style.height =
+        `${height}px`;
+
+    game.ctx.setTransform(
+        devicePixelRatio,
+        0,
+        0,
+        devicePixelRatio,
+        0,
+        0
+    );
+}
+
+
+// ============================================
+// MAIN CONTROLS
+// ============================================
+
+function attachMainControls() {
+    const planetButton =
+        document.getElementById(
+            "planet-mode-button"
+        );
+
+    const solarButton =
+        document.getElementById(
+            "solar-system-button"
+        );
+
+    const settingsButton =
+        document.getElementById(
+            "settings-button"
+        );
+
+    const mainMenuButton =
+        document.getElementById(
+            "main-menu-button"
+        );
+
+    const resetButton =
+        document.getElementById(
+            "reset-button"
+        );
+
+    const pauseButton =
+        document.getElementById(
+            "pause-button"
+        );
+
+    if (planetButton) {
+        planetButton.addEventListener(
+            "click",
+            () => {
+                startGameMode(
+                    "planet"
+                );
+            }
+        );
     }
 
-    if (currentMode === "solar") {
+    if (solarButton) {
+        solarButton.addEventListener(
+            "click",
+            () => {
+                startGameMode(
+                    "solar"
+                );
+            }
+        );
+    }
 
-        updateSolarSystem(deltaTime);
+    if (settingsButton) {
+        settingsButton.addEventListener(
+            "click",
+            openSettings
+        );
+    }
+
+    if (mainMenuButton) {
+        mainMenuButton.addEventListener(
+            "click",
+            returnToMainMenu
+        );
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener(
+            "click",
+            resetCurrentMode
+        );
+    }
+
+    if (pauseButton) {
+        pauseButton.addEventListener(
+            "click",
+            togglePause
+        );
+    }
+
+    // Keyboard controls
+    window.addEventListener(
+        "keydown",
+        handleKeyboard
+    );
+}
+
+
+// ============================================
+// START GAME MODE
+// ============================================
+
+export function startGameMode(
+    mode
+) {
+    stopCurrentMode();
+
+    hideMenus();
+
+    game.currentMode =
+        mode;
+
+    game.paused = false;
+
+    if (mode === "planet") {
+        startPlanetMode(
+            game.canvas
+        );
+    }
+
+    if (mode === "solar") {
+        startSolarSystem(
+            game.canvas
+        );
+
+        const solarObjects =
+            getSolarObjects();
+
+        if (
+            solarObjects.length === 0
+        ) {
+            createDefaultSolarSystem();
+        }
+    }
+
+    showGameInterface();
+
+    game.lastTime =
+        performance.now();
+}
+
+
+// ============================================
+// STOP CURRENT MODE
+// ============================================
+
+function stopCurrentMode() {
+    try {
+        stopPlanetMode();
+    } catch {
+        // Planet Mode may not be running.
+    }
+
+    try {
+        stopSolarSystem();
+    } catch {
+        // Solar System Mode may not be running.
     }
 }
 
 
-function draw() {
+// ============================================
+// RETURN TO MAIN MENU
+// ============================================
 
-    if (currentMode === "planet") {
+export function returnToMainMenu() {
+    stopCurrentMode();
 
-        drawPlanetMode();
+    game.currentMode =
+        "menu";
+
+    game.paused = false;
+
+    hideGameInterface();
+
+    showMainMenu();
+}
+
+
+// ============================================
+// HIDE MENUS
+// ============================================
+
+function hideMenus() {
+    const mainMenu =
+        document.getElementById(
+            "main-menu"
+        );
+
+    const sandboxMenu =
+        document.getElementById(
+            "sandbox-menu"
+        );
+
+    const weaponMenu =
+        document.getElementById(
+            "planet-weapon-menu"
+        );
+
+    const settingsMenu =
+        document.getElementById(
+            "settings-menu"
+        );
+
+    if (mainMenu) {
+        mainMenu.style.display =
+            "none";
     }
 
-    else if (currentMode === "solar") {
-
-        drawSolarSystem();
+    if (sandboxMenu) {
+        sandboxMenu.style.display =
+            "none";
     }
 
-    else {
+    if (weaponMenu) {
+        weaponMenu.style.display =
+            "none";
+    }
 
-        ctx.clearRect(
-            0,
-            0,
-            canvas.width,
-            canvas.height
+    if (settingsMenu) {
+        settingsMenu.style.display =
+            "none";
+    }
+}
+
+
+// ============================================
+// SHOW GAME INTERFACE
+// ============================================
+
+function showGameInterface() {
+    if (!game.canvas) {
+        return;
+    }
+
+    game.canvas.style.display =
+        "block";
+
+    const info =
+        document.getElementById(
+            "game-info"
+        );
+
+    if (info) {
+        info.style.display =
+            "block";
+    }
+
+    const pauseMenu =
+        document.getElementById(
+            "pause-menu"
+        );
+
+    if (pauseMenu) {
+        pauseMenu.style.display =
+            "none";
+    }
+}
+
+
+// ============================================
+// HIDE GAME INTERFACE
+// ============================================
+
+function hideGameInterface() {
+    const canvas =
+        game.canvas;
+
+    if (canvas) {
+        canvas.style.display =
+            "none";
+    }
+
+    const info =
+        document.getElementById(
+            "game-info"
+        );
+
+    if (info) {
+        info.style.display =
+            "none";
+    }
+
+    const pauseMenu =
+        document.getElementById(
+            "pause-menu"
+        );
+
+    if (pauseMenu) {
+        pauseMenu.style.display =
+            "none";
+    }
+}
+
+
+// ============================================
+// SETTINGS
+// ============================================
+
+function openSettings() {
+    const settingsMenu =
+        document.getElementById(
+            "settings-menu"
+        );
+
+    if (!settingsMenu) {
+        return;
+    }
+
+    const mainMenu =
+        document.getElementById(
+            "main-menu"
+        );
+
+    if (mainMenu) {
+        mainMenu.style.display =
+            "none";
+    }
+
+    settingsMenu.style.display =
+        "flex";
+}
+
+
+// ============================================
+// RESET CURRENT MODE
+// ============================================
+
+function resetCurrentMode() {
+    if (
+        game.currentMode ===
+        "solar"
+    ) {
+        createDefaultSolarSystem();
+
+        return;
+    }
+
+    if (
+        game.currentMode ===
+        "planet"
+    ) {
+        startPlanetMode(
+            game.canvas
         );
     }
 }
 
 
-function gameLoop(time) {
+// ============================================
+// PAUSE
+// ============================================
 
-    const deltaTime =
+function togglePause() {
+    if (
+        game.currentMode ===
+        "menu"
+    ) {
+        return;
+    }
+
+    game.paused =
+        !game.paused;
+
+    const pauseMenu =
+        document.getElementById(
+            "pause-menu"
+        );
+
+    if (pauseMenu) {
+        pauseMenu.style.display =
+            game.paused
+                ? "flex"
+                : "none";
+    }
+
+    updatePauseButton();
+}
+
+
+// ============================================
+// PAUSE BUTTON
+// ============================================
+
+function updatePauseButton() {
+    const button =
+        document.getElementById(
+            "pause-button"
+        );
+
+    if (!button) {
+        return;
+    }
+
+    button.textContent =
+        game.paused
+            ? "RESUME"
+            : "PAUSE";
+}
+
+
+// ============================================
+// KEYBOARD
+// ============================================
+
+function handleKeyboard(event) {
+    const key =
+        event.key.toLowerCase();
+
+    if (key === "escape") {
+        if (
+            game.currentMode !==
+            "menu"
+        ) {
+            returnToMainMenu();
+        }
+
+        return;
+    }
+
+    if (key === "p") {
+        togglePause();
+
+        return;
+    }
+
+    if (
+        key === " " &&
+        game.currentMode !==
+            "menu"
+    ) {
+        event.preventDefault();
+
+        togglePause();
+
+        return;
+    }
+
+    if (
+        key === "r" &&
+        game.currentMode !==
+            "menu"
+    ) {
+        resetCurrentMode();
+    }
+}
+
+
+// ============================================
+// SOLAR OBJECT ACCESS
+// ============================================
+
+function getSolarObjects() {
+    try {
+        const module =
+            window.__universeSmashSolarSystem;
+
+        if (
+            module &&
+            Array.isArray(
+                module.objects
+            )
+        ) {
+            return module.objects;
+        }
+    } catch {
+        // Ignore.
+    }
+
+    return [];
+}
+
+
+// ============================================
+// GAME LOOP
+// ============================================
+
+function gameLoop(timestamp) {
+    if (!game.running) {
+        return;
+    }
+
+    const deltaMilliseconds =
+        timestamp -
+        game.lastTime;
+
+    game.lastTime =
+        timestamp;
+
+    let deltaTime =
+        deltaMilliseconds /
+        16.6667;
+
+    // Protect against giant jumps when
+    // the browser tab is inactive.
+    deltaTime =
         Math.min(
-            (time - lastTime) / 16.6667,
+            Math.max(
+                deltaTime,
+                0
+            ),
             3
         );
 
-    lastTime = time;
+    if (!game.paused) {
+        updateGame(
+            deltaTime
+        );
+    }
 
-    update(deltaTime);
+    drawGame();
 
-    draw();
-
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(
+        gameLoop
+    );
 }
 
 
-async function startGame() {
+// ============================================
+// UPDATE GAME
+// ============================================
 
-    await runStartup();
+function updateGame(
+    deltaTime
+) {
+    if (
+        game.currentMode ===
+        "planet"
+    ) {
+        updatePlanetMode(
+            deltaTime
+        );
+    }
 
-    setupMenu();
-
-    requestAnimationFrame(gameLoop);
+    if (
+        game.currentMode ===
+        "solar"
+    ) {
+        updateSolarSystem(
+            deltaTime
+        );
+    }
 }
 
 
-startGame();
+// ============================================
+// DRAW GAME
+// ============================================
+
+function drawGame() {
+    if (
+        game.currentMode ===
+        "planet"
+    ) {
+        drawPlanetMode();
+
+        return;
+    }
+
+    if (
+        game.currentMode ===
+        "solar"
+    ) {
+        drawSolarSystem();
+
+        return;
+    }
+
+    // Menu background
+    if (game.ctx) {
+        game.ctx.clearRect(
+            0,
+            0,
+            game.width,
+            game.height
+        );
+    }
+}
+
+
+// ============================================
+// STARTUP
+// ============================================
+
+async function bootGame() {
+    const initialized =
+        initializeGame();
+
+    if (!initialized) {
+        return;
+    }
+
+    try {
+        await runStartup();
+    } catch (error) {
+        console.warn(
+            "Startup sequence failed:",
+            error
+        );
+    }
+
+    returnToMainMenu();
+
+    requestAnimationFrame(
+        (timestamp) => {
+            game.lastTime =
+                timestamp;
+
+            requestAnimationFrame(
+                gameLoop
+            );
+        }
+    );
+}
+
+
+// ============================================
+// PUBLIC GAME STATE
+// ============================================
+
+export function getGameState() {
+    return {
+        mode:
+            game.currentMode,
+
+        paused:
+            game.paused,
+
+        running:
+            game.running,
+
+        width:
+            game.width,
+
+        height:
+            game.height,
+
+        audioEnabled:
+            isAudioEnabled(),
+
+        volume:
+            getMasterVolume()
+    };
+}
+
+
+// ============================================
+// AUDIO SETTINGS
+// ============================================
+
+export function setAudioEnabled(
+    enabled
+) {
+    if (enabled) {
+        enableAudio();
+    } else {
+        disableAudio();
+    }
+}
+
+
+export function setAudioVolume(
+    volume
+) {
+    setMasterVolume(
+        volume
+    );
+}
+
+
+// ============================================
+// GLOBAL ACCESS
+// ============================================
+
+window.UniverseSmash = {
+    startGameMode,
+    returnToMainMenu,
+    togglePause,
+    resetCurrentMode,
+    getGameState,
+    setAudioEnabled,
+    setAudioVolume
+};
+
+
+// ============================================
+// BOOT
+// ============================================
+
+bootGame();
