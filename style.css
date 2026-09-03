@@ -1,641 +1,359 @@
-/* =========================================
-   UNIVERSE SMASH
-   MAIN GAME STYLES
-   ========================================= */
-
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 html,
 body {
-  margin: 0;
-  padding: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
 
-  width: 100%;
-  height: 100%;
+    background: #000;
+    color: white;
 
-  overflow: hidden;
-
-  background: #02030a;
-
-  color: white;
-
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
 }
 
+body {
+    position: relative;
+}
 
-/* =========================================
-   GAME CANVAS
-   ========================================= */
+button {
+    font-family: inherit;
+}
 
 #game-canvas {
-  position: fixed;
+    position: fixed;
+    inset: 0;
 
-  top: 0;
-  left: 0;
+    width: 100vw;
+    height: 100vh;
 
-  width: 100vw;
-  height: 100vh;
+    display: block;
 
-  display: block;
+    background: #000;
 
-  background: #02030a;
-
-  cursor: crosshair;
+    cursor: crosshair;
 }
 
-
-/* =========================================
-   STARTUP SCREEN
-   ========================================= */
+/* ==============================
+   STARTUP
+============================== */
 
 #startup-screen {
-  position: fixed;
+    position: fixed;
+    inset: 0;
 
-  inset: 0;
+    z-index: 1000;
 
-  z-index: 1000;
-
-  display: flex;
-
-  align-items: center;
-  justify-content: center;
-
-  background:
-    radial-gradient(
-      circle at center,
-      #111b3d 0%,
-      #050816 45%,
-      #000000 100%
-    );
-
-  opacity: 1;
-
-  transition:
-    opacity 0.7s ease;
-
-  text-align: center;
+    background: #000;
 }
 
+.startup-container {
+    position: absolute;
+    inset: 0;
 
-/* =========================================
-   STARTUP CONTENT
-   ========================================= */
+    display: flex;
+    flex-direction: column;
 
-.startup-content {
-  width: min(700px, 90vw);
+    justify-content: center;
+    align-items: center;
 
-  padding: 40px;
+    text-align: center;
 }
 
+.startup-title {
+    font-size: clamp(40px, 8vw, 100px);
 
-.startup-content h1 {
-  margin: 0 0 18px;
+    font-weight: 900;
 
-  font-size:
-    clamp(40px, 7vw, 80px);
+    letter-spacing: 8px;
 
-  letter-spacing: 4px;
-
-  text-shadow:
-    0 0 15px #4fc3ff,
-    0 0 35px #315cff;
-}
-
-
-.startup-content p {
-  color: #b8c7e6;
-
-  font-size: 18px;
-
-  line-height: 1.5;
-}
-
-
-/* =========================================
-   GAME TITLE
-   ========================================= */
-
-.game-title {
-  font-size:
-    clamp(42px, 8vw, 90px) !important;
-
-  letter-spacing: 5px;
-
-  animation:
-    titlePulse 2.5s infinite alternate;
-}
-
-
-@keyframes titlePulse {
-
-  from {
     text-shadow:
-      0 0 10px #4fc3ff;
-  }
+        0 0 10px #fff,
+        0 0 30px #4b8cff,
+        0 0 70px #4b8cff;
 
-  to {
-    text-shadow:
-      0 0 20px #4fc3ff,
-      0 0 45px #315cff,
-      0 0 80px #5c2cff;
-  }
-
+    margin-bottom: 15px;
 }
 
+.startup-subtitle {
+    color: #aaa;
 
-/* =========================================
-   LOADING BAR
-   ========================================= */
+    font-size: 14px;
+
+    letter-spacing: 4px;
+}
+
+.loading-container {
+    width: min(500px, 80vw);
+
+    margin-top: 45px;
+}
 
 .loading-bar {
-  width: min(500px, 80vw);
+    width: 100%;
+    height: 8px;
 
-  height: 14px;
+    border: 1px solid #444;
 
-  margin: 30px auto;
-
-  overflow: hidden;
-
-  border: 1px solid #52618a;
-
-  border-radius: 20px;
-
-  background: #080c1a;
+    background: #111;
 }
 
+.loading-progress {
+    width: 0%;
+    height: 100%;
 
-#loading-progress {
-  width: 0%;
+    background: white;
 
-  height: 100%;
-
-  border-radius: 20px;
-
-  background:
-    linear-gradient(
-      90deg,
-      #247cff,
-      #8c4dff
-    );
-
-  transition:
-    width 0.1s linear;
+    transition: width 0.15s linear;
 }
 
+.press-start {
+    margin-top: 40px;
 
-/* =========================================
-   PRESS START
-   ========================================= */
+    font-size: 20px;
 
-#start-button {
-  margin-top: 30px;
+    letter-spacing: 5px;
 
-  padding: 16px 45px;
-
-  border: 1px solid #5dcaff;
-
-  border-radius: 8px;
-
-  background:
-    rgba(20, 80, 150, 0.25);
-
-  color: white;
-
-  font-size: 20px;
-
-  font-weight: bold;
-
-  letter-spacing: 3px;
-
-  cursor: pointer;
-
-  box-shadow:
-    0 0 15px rgba(70, 190, 255, 0.35);
-
-  transition:
-    transform 0.2s,
-    background 0.2s,
-    box-shadow 0.2s;
+    animation: blink 1s infinite;
 }
 
-
-#start-button:hover {
-  transform: scale(1.06);
-
-  background:
-    rgba(60, 140, 255, 0.35);
-
-  box-shadow:
-    0 0 30px rgba(70, 190, 255, 0.7);
+@keyframes blink {
+    50% {
+        opacity: 0.2;
+    }
 }
 
-
-.startup-small {
-  margin-top: 15px;
-
-  opacity: 0.6;
-
-  font-size: 13px !important;
-}
-
-
-/* =========================================
+/* ==============================
    MAIN MENU
-   ========================================= */
+============================== */
 
 #main-menu {
-  position: fixed;
+    position: fixed;
+    inset: 0;
 
-  inset: 0;
+    z-index: 500;
 
-  z-index: 100;
+    display: none;
 
-  display: none;
+    justify-content: center;
+    align-items: center;
 
-  align-items: center;
-  justify-content: center;
-
-  text-align: center;
-
-  background:
-    radial-gradient(
-      circle,
-      rgba(15, 30, 70, 0.45),
-      rgba(0, 0, 0, 0.75)
-    );
-
-  transition:
-    opacity 0.3s ease;
+    background:
+        radial-gradient(
+            circle at center,
+            #131d38 0%,
+            #050817 45%,
+            #000 100%
+        );
 }
 
+.menu-container {
+    width: min(600px, 90vw);
 
-.menu-content {
-  width: min(850px, 92vw);
-
-  padding: 35px;
+    text-align: center;
 }
-
 
 .menu-title {
-  margin: 0;
+    font-size: clamp(42px, 8vw, 95px);
 
-  font-size:
-    clamp(38px, 7vw, 75px);
+    font-weight: 900;
 
-  letter-spacing: 5px;
+    letter-spacing: 7px;
 
-  text-shadow:
-    0 0 20px #4fc3ff,
-    0 0 50px #315cff;
+    margin-bottom: 50px;
+
+    text-shadow:
+        0 0 10px white,
+        0 0 35px #397eff,
+        0 0 80px #397eff;
 }
 
+.menu-buttons {
+    display: flex;
 
-.menu-subtitle {
-  margin:
-    15px 0 35px;
+    flex-direction: column;
 
-  color: #aebfe0;
-
-  font-size: 18px;
+    gap: 14px;
 }
 
+.menu-button {
+    width: 100%;
 
-/* =========================================
-   MODE BUTTONS
-   ========================================= */
+    padding: 18px;
 
-.mode-buttons {
-  display: grid;
+    background: rgba(15, 20, 35, 0.9);
 
-  grid-template-columns:
-    repeat(2, minmax(220px, 1fr));
+    color: white;
 
-  gap: 20px;
+    border: 1px solid #555;
+
+    font-size: 17px;
+
+    letter-spacing: 2px;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.15s,
+        background 0.15s,
+        color 0.15s;
 }
 
+.menu-button:hover {
+    background: white;
 
-.mode-button {
-  min-height: 190px;
+    color: black;
 
-  padding: 25px;
-
-  border: 1px solid #425b88;
-
-  border-radius: 15px;
-
-  background:
-    rgba(12, 22, 48, 0.85);
-
-  color: white;
-
-  cursor: pointer;
-
-  transition:
-    transform 0.2s,
-    border-color 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
+    transform: scale(1.03);
 }
 
-
-.mode-button:hover {
-  transform:
-    translateY(-6px);
-
-  border-color:
-    #56c8ff;
-
-  background:
-    rgba(25, 50, 95, 0.9);
-
-  box-shadow:
-    0 0 30px
-    rgba(70, 180, 255, 0.3);
-}
-
-
-.mode-icon {
-  display: block;
-
-  font-size: 55px;
-
-  margin-bottom: 12px;
-}
-
-
-.mode-name {
-  display: block;
-
-  font-size: 21px;
-
-  font-weight: bold;
-
-  letter-spacing: 2px;
-}
-
-
-.mode-description {
-  display: block;
-
-  margin-top: 10px;
-
-  color: #9eafd1;
-
-  font-size: 14px;
-
-  line-height: 1.4;
-}
-
-
-/* =========================================
-   SETTINGS BUTTON
-   ========================================= */
-
-.settings-button {
-  margin-top: 25px;
-
-  padding: 12px 28px;
-
-  border: 1px solid #52618a;
-
-  border-radius: 8px;
-
-  background:
-    rgba(15, 25, 50, 0.8);
-
-  color: white;
-
-  cursor: pointer;
-
-  font-size: 15px;
-}
-
-
-.settings-button:hover {
-  border-color: #7cceff;
-}
-
-
-/* =========================================
-   SANDBOX MENU
-   ========================================= */
+/* ==============================
+   GAME MENUS
+============================== */
 
 #sandbox-menu,
 #planet-weapon-menu {
-  position: fixed;
+    position: fixed;
 
-  top: 20px;
-  left: 20px;
+    z-index: 200;
 
-  z-index: 50;
+    top: 15px;
+    left: 15px;
 
-  width: 245px;
+    width: 230px;
 
-  max-height: calc(100vh - 40px);
+    padding: 12px;
 
-  overflow-y: auto;
+    background: rgba(5, 8, 15, 0.9);
 
-  padding: 18px;
+    border: 1px solid #444;
 
-  border: 1px solid #344b78;
+    border-radius: 8px;
 
-  border-radius: 12px;
+    backdrop-filter: blur(8px);
 
-  background:
-    rgba(4, 9, 22, 0.92);
-
-  backdrop-filter:
-    blur(10px);
-
-  box-shadow:
-    0 10px 40px
-    rgba(0, 0, 0, 0.5);
+    display: none;
 }
 
+.menu-section-title {
+    font-size: 12px;
 
-#sandbox-menu h2,
-#planet-weapon-menu h2 {
-  margin:
-    0 0 10px;
+    color: #aaa;
 
-  font-size: 19px;
+    letter-spacing: 2px;
 
-  letter-spacing: 1px;
+    margin-bottom: 10px;
+
+    text-align: center;
 }
 
+.game-button {
+    width: 100%;
 
-#sandbox-menu h3 {
-  margin:
-    16px 0 7px;
+    margin-bottom: 6px;
 
-  color: #7ed7ff;
+    padding: 9px;
 
-  font-size: 12px;
+    background: #101010;
 
-  letter-spacing: 2px;
+    border: 1px solid #444;
+
+    color: white;
+
+    cursor: pointer;
+
+    transition: 0.15s;
 }
 
+.game-button:hover {
+    background: white;
 
-.sandbox-description {
-  color: #9baed2;
-
-  font-size: 12px;
-
-  line-height: 1.4;
+    color: black;
 }
 
+/* ==============================
+   GAME INFO
+============================== */
 
-/* =========================================
-   OBJECT BUTTONS
-   ========================================= */
+#game-info {
+    position: fixed;
 
-#sandbox-menu button,
-#planet-weapon-menu button {
-  display: block;
+    top: 15px;
+    right: 15px;
 
-  width: 100%;
+    z-index: 150;
 
-  margin: 6px 0;
+    display: none;
 
-  padding: 10px;
+    padding: 10px 14px;
 
-  border: 1px solid #33476e;
+    background: rgba(0, 0, 0, 0.65);
 
-  border-radius: 7px;
+    border: 1px solid #333;
 
-  background:
-    rgba(20, 35, 65, 0.8);
+    border-radius: 6px;
 
-  color: white;
+    color: #ddd;
 
-  text-align: left;
+    font-size: 13px;
 
-  cursor: pointer;
+    line-height: 1.7;
 
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    transform 0.15s;
+    pointer-events: none;
 }
 
+/* ==============================
+   PAUSE
+============================== */
 
-#sandbox-menu button:hover,
-#planet-weapon-menu button:hover {
-  transform:
-    translateX(3px);
+#pause-menu {
+    position: fixed;
 
-  border-color:
-    #58c9ff;
+    inset: 0;
 
-  background:
-    rgba(35, 70, 115, 0.9);
+    z-index: 400;
+
+    display: none;
+
+    justify-content: center;
+    align-items: center;
+
+    background: rgba(0, 0, 0, 0.65);
+
+    backdrop-filter: blur(5px);
 }
 
+/* ==============================
+   RESPONSIVE
+============================== */
 
-#sandbox-menu
-.selected-object {
-  border-color:
-    #58d7ff !important;
+@media (max-width: 600px) {
 
-  background:
-    rgba(30, 100, 150, 0.7) !important;
+    #sandbox-menu,
+    #planet-weapon-menu {
+        width: 190px;
 
-  box-shadow:
-    0 0 12px
-    rgba(80, 210, 255, 0.3);
-}
+        top: 8px;
+        left: 8px;
+    }
 
+    .game-button {
+        padding: 7px;
 
-/* =========================================
-   SETTINGS PANEL
-   ========================================= */
+        font-size: 12px;
+    }
 
-.settings-panel {
-  position: absolute;
+    #game-info {
+        top: 8px;
+        right: 8px;
 
-  left: 50%;
-  top: 50%;
-
-  transform:
-    translate(-50%, -50%);
-
-  width: min(420px, 90vw);
-
-  padding: 30px;
-
-  border: 1px solid #405785;
-
-  border-radius: 15px;
-
-  background:
-    rgba(5, 12, 28, 0.96);
-
-  box-shadow:
-    0 20px 60px
-    rgba(0, 0, 0, 0.7);
-}
-
-
-.settings-panel h2 {
-  margin-top: 0;
-}
-
-
-.settings-panel label {
-  display: block;
-
-  margin: 25px 0;
-
-  color: #b8c7e6;
-}
-
-
-.settings-panel input[type="range"] {
-  display: block;
-
-  width: 100%;
-
-  margin-top: 10px;
-}
-
-
-#close-settings {
-  text-align: center !important;
-
-  margin-top: 10px !important;
-}
-
-
-/* =========================================
-   MOBILE LAYOUT
-   ========================================= */
-
-@media (max-width: 650px) {
-
-  .mode-buttons {
-    grid-template-columns: 1fr;
-  }
-
-
-  .mode-button {
-    min-height: 150px;
-  }
-
-
-  #sandbox-menu,
-  #planet-weapon-menu {
-    width: 205px;
-
-    top: 10px;
-    left: 10px;
-
-    max-height:
-      calc(100vh - 20px);
-  }
-
+        font-size: 11px;
+    }
 }
