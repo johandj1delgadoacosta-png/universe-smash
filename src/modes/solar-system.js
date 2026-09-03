@@ -1,962 +1,675 @@
-import {
-  updatePhysics
-} from "../physics.js";
 // =========================================
 // UNIVERSE SMASH
 // SOLAR SYSTEM / SANDBOX MODE
 // =========================================
 
-import {
-  gameState,
-  updateObjectCount
-} from "../main.js";
+
+// =========================================
+// IMPORTS
+// =========================================
 
 import {
-  createPhysicsBody,
-  updatePhysics,
-  findCollisions,
-  absorbObject,
-  setOrbitVelocity
+  updatePhysics
 } from "../physics.js";
 
 
+import Camera, {
+  enableCameraZoom
+} from "../camera.js";
+
+
+import {
+  updateParticles,
+  drawParticles,
+  createExplosion
+} from "../particles.js";
+
+
+import {
+  createPlanet
+} from "../objects/planet.js";
+
+
+import {
+  createMoon
+} from "../objects/moon.js";
+
+
+import {
+  createAsteroid
+} from "../objects/asteroid.js";
+
+
+import {
+  createAntimatterPlanet
+} from "../objects/antimatter-planet.js";
+
+
 // =========================================
-// STATE
+// SOLAR SYSTEM STATE
 // =========================================
 
-let canvas = null;
+const SolarSystem = {
 
-let objects = [];
+  active: false,
 
-let animationRunning = false;
+  canvas: null,
 
-let selectedObjectType = null;
+  ctx: null,
+
+  objects: [],
+
+  selectedObject: "planet",
+
+  dragging: false,
+
+  lastMouseX: 0,
+
+  lastMouseY: 0
+
+};
 
 
 // =========================================
-// SETUP
+// START SOLAR SYSTEM MODE
 // =========================================
 
-export function setupSolarSystem() {
+export function startSolarSystem(
+  canvas
+) {
 
-  console.log("☀️ Solar System Mode ready.");
+  SolarSystem.active = true;
 
-  canvas =
+  SolarSystem.canvas = canvas;
+
+  SolarSystem.ctx =
+    canvas.getContext("2d");
+
+
+  SolarSystem.objects = [];
+
+
+  Camera.reset();
+
+  enableCameraZoom(canvas);
+
+
+  createSandboxMenu();
+
+
+  console.log(
+    "☀️ Solar System Mode Started"
+  );
+
+}
+
+
+// =========================================
+// STOP MODE
+// =========================================
+
+export function stopSolarSystem() {
+
+  SolarSystem.active = false;
+
+  SolarSystem.objects = [];
+
+
+  const menu =
     document.getElementById(
-      "solarSystemCanvas"
+      "sandbox-menu"
     );
 
 
-  // -----------------------------------------
-  // OBJECT BUTTONS
-  // -----------------------------------------
+  if (menu) {
 
-  const objectButtons =
-    document.querySelectorAll(
-      "#solarSystemScreen .toolButton"
+    menu.remove();
+
+  }
+
+}
+
+
+// =========================================
+// CREATE SANDBOX MENU
+// =========================================
+
+function createSandboxMenu() {
+
+  let menu =
+    document.getElementById(
+      "sandbox-menu"
     );
 
 
-  objectButtons.forEach((button) => {
+  if (menu) {
 
-    button.addEventListener(
-      "click",
-      () => {
+    menu.remove();
 
-        selectedObjectType =
-          button.dataset.object;
-
-        gameState.selectedObject =
-          selectedObjectType;
+  }
 
 
-        highlightSelectedButton(button);
+  menu =
+    document.createElement("div");
 
-        console.log(
-          `Selected object: ${selectedObjectType}`
+
+  menu.id =
+    "sandbox-menu";
+
+
+  menu.innerHTML = `
+
+    <h2>☀️ SOLAR SYSTEM MODE</h2>
+
+    <p>Add celestial objects:</p>
+
+    <button data-object="planet">
+      🌍 Planet
+    </button>
+
+    <button data-object="moon">
+      🌕 Moon
+    </button>
+
+    <button data-object="asteroid">
+      ☄️ Asteroid
+    </button>
+
+    <button data-object="antimatter">
+      🟣 Antimatter Planet
+    </button>
+
+    <button id="clear-system">
+      🗑️ Clear System
+    </button>
+
+  `;
+
+
+  document.body.appendChild(
+    menu
+  );
+
+
+  menu
+    .querySelectorAll(
+      "button[data-object]"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+
+          () => {
+
+            SolarSystem.selectedObject =
+              button.dataset.object;
+
+          }
+
         );
 
       }
     );
 
-  });
 
-
-  // -----------------------------------------
-  // CLICK CANVAS TO ADD OBJECT
-  // -----------------------------------------
-
-  if (canvas) {
-
-    canvas.addEventListener(
+  document
+    .getElementById("clear-system")
+    .addEventListener(
       "click",
-      addObjectFromClick
+
+      () => {
+
+        SolarSystem.objects = [];
+
+      }
+
     );
-
-  }
-
-
-  // -----------------------------------------
-  // START EVENT
-  // -----------------------------------------
-
-  document.addEventListener(
-    "universeSmashSolarSystemStart",
-    startSolarSystem
-  );
 
 }
 
 
 // =========================================
-// START SOLAR SYSTEM
+// ADD OBJECT
 // =========================================
 
-function startSolarSystem() {
+export function addSolarObject(
+  screenX,
+  screenY
+) {
 
-  console.log(
-    "🌌 Solar System Sandbox started!"
-  );
-
-
-  // Create default star if empty
-
-  if (objects.length === 0) {
-
-    createStar(
-      0,
-      0
-    );
-
-  }
-
-
-  if (!animationRunning) {
-
-    animationRunning = true;
-
-    requestAnimationFrame(
-      gameLoop
-    );
-
-  }
-
-}
-
-
-// =========================================
-// ADD OBJECT FROM CLICK
-// =========================================
-
-function addObjectFromClick(event) {
-
-  if (!selectedObjectType) {
-
-    showMessage(
-      "SELECT AN OBJECT FIRST"
-    );
-
+  if (
+    !SolarSystem.active ||
+    !SolarSystem.canvas
+  ) {
     return;
+  }
+
+
+  const worldPosition =
+    Camera.screenToWorld(
+      screenX,
+      screenY,
+      SolarSystem.canvas
+    );
+
+
+  let object;
+
+
+  switch (
+    SolarSystem.selectedObject
+  ) {
+
+
+    // -------------------------------------
+    // PLANET
+    // -------------------------------------
+
+    case "planet":
+
+      object =
+        createPlanet(
+          "earth",
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
+
+
+    // -------------------------------------
+    // MOON
+    // -------------------------------------
+
+    case "moon":
+
+      object =
+        createMoon(
+          "rocky",
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
+
+
+    // -------------------------------------
+    // ASTEROID
+    // -------------------------------------
+
+    case "asteroid":
+
+      object =
+        createAsteroid(
+          "medium",
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
+
+
+    // -------------------------------------
+    // ANTIMATTER PLANET
+    // -------------------------------------
+
+    case "antimatter":
+
+      object =
+        createAntimatterPlanet(
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
 
   }
+
+
+  if (object) {
+
+    SolarSystem.objects.push(
+      object
+    );
+
+  }
+
+}
+
+
+// =========================================
+// UPDATE SOLAR SYSTEM
+// =========================================
+
+export function updateSolarSystem(
+  deltaTime = 1
+) {
+
+  if (!SolarSystem.active) return;
+
+
+  const activeObjects =
+    SolarSystem.objects.filter(
+      object => !object.destroyed
+    );
+
+
+  // Update physics
+
+  updatePhysics(
+    activeObjects,
+    deltaTime
+  );
+
+
+  // Update particles
+
+  updateParticles(
+    deltaTime
+  );
+
+
+  // Remove destroyed objects
+
+  SolarSystem.objects =
+    SolarSystem.objects.filter(
+      object => !object.destroyed
+    );
+
+}
+
+
+// =========================================
+// DRAW BACKGROUND
+// =========================================
+
+function drawBackground(
+  ctx,
+  canvas
+) {
+
+  ctx.fillStyle =
+    "#02030a";
+
+  ctx.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+
+  // Simple stars
+
+  ctx.fillStyle =
+    "white";
+
+
+  for (
+    let i = 0;
+    i < 120;
+    i++
+  ) {
+
+    const x =
+      (i * 137) %
+      canvas.width;
+
+    const y =
+      (i * 73) %
+      canvas.height;
+
+
+    ctx.globalAlpha =
+      0.2 +
+      (i % 5) * 0.15;
+
+
+    ctx.fillRect(
+      x,
+      y,
+      1,
+      1
+    );
+
+  }
+
+
+  ctx.globalAlpha = 1;
+
+}
+
+
+// =========================================
+// DRAW CELESTIAL OBJECT
+// =========================================
+
+function drawObject(
+  ctx,
+  object,
+  canvas
+) {
+
+  const position =
+    Camera.worldToScreen(
+      object.position.x,
+      object.position.y,
+      canvas
+    );
+
+
+  const radius =
+    (object.radius ?? 20) *
+    Camera.zoom;
+
+
+  ctx.save();
+
+
+  // Glow
+
+  ctx.shadowBlur =
+    radius * 0.8;
+
+  ctx.shadowColor =
+    object.glow ??
+    object.color ??
+    "#ffffff";
+
+
+  ctx.fillStyle =
+    object.color ??
+    "#888888";
+
+
+  ctx.beginPath();
+
+  ctx.arc(
+    position.x,
+    position.y,
+    radius,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  ctx.restore();
+
+}
+
+
+// =========================================
+// DRAW SOLAR SYSTEM
+// =========================================
+
+export function drawSolarSystem() {
+
+  if (
+    !SolarSystem.active ||
+    !SolarSystem.ctx ||
+    !SolarSystem.canvas
+  ) {
+    return;
+  }
+
+
+  const ctx =
+    SolarSystem.ctx;
+
+  const canvas =
+    SolarSystem.canvas;
+
+
+  drawBackground(
+    ctx,
+    canvas
+  );
+
+
+  SolarSystem.objects.forEach(
+    object => {
+
+      drawObject(
+        ctx,
+        object,
+        canvas
+      );
+
+    }
+  );
+
+
+  drawParticles(
+    ctx,
+    Camera,
+    canvas
+  );
+
+}
+
+
+// =========================================
+// HANDLE MOUSE DOWN
+// =========================================
+
+export function handleSolarMouseDown(
+  event
+) {
+
+  if (!SolarSystem.active) return;
 
 
   const rect =
-    canvas.getBoundingClientRect();
+    SolarSystem.canvas
+      .getBoundingClientRect();
 
 
   const x =
     event.clientX -
     rect.left;
 
+
   const y =
     event.clientY -
     rect.top;
 
 
-  switch (selectedObjectType) {
+  // Left click adds object
 
-    case "star":
-      createStar(x, y);
-      break;
+  if (event.button === 0) {
 
-    case "planet":
-      createPlanet(x, y);
-      break;
-
-    case "moon":
-      createMoon(x, y);
-      break;
-
-    case "asteroid":
-      createAsteroid(x, y);
-      break;
-
-    case "black-hole":
-      createBlackHole(x, y);
-      break;
-
-    case "wormhole":
-      createWormhole(x, y);
-      break;
-
-    case "grey-hole":
-      createGreyHole(x, y);
-      break;
-
-    case "antimatter-planet":
-      createAntimatterPlanet(x, y);
-      break;
-
-  }
-
-}
-
-
-// =========================================
-// CREATE BASE OBJECT
-// =========================================
-
-function createObject(
-  type,
-  x,
-  y,
-  options = {}
-) {
-
-  const element =
-    document.createElement("div");
-
-
-  element.className =
-    `spaceObject ${type}`;
-
-
-  element.style.position =
-    "absolute";
-
-  element.style.left =
-    `${x}px`;
-
-  element.style.top =
-    `${y}px`;
-
-  element.style.transform =
-    "translate(-50%, -50%)";
-
-  element.style.width =
-    `${options.size}px`;
-
-  element.style.height =
-    `${options.size}px`;
-
-  element.style.borderRadius =
-    "50%";
-
-  element.style.background =
-    options.background;
-
-  element.style.boxShadow =
-    options.shadow || "none";
-
-
-  canvas.appendChild(element);
-
-
-  const body =
-    createPhysicsBody({
-
-      mass:
-        options.mass ?? 10,
-
-      radius:
-        options.radius ?? 1,
-
+    addSolarObject(
       x,
-      y,
-      z: 0,
-
-      vx:
-        options.vx ?? 0,
-
-      vy:
-        options.vy ?? 0,
-
-      vz: 0,
-
-      fixed:
-        options.fixed ?? false
-
-    });
-
-
-  body.type = type;
-
-  body.name = type;
-
-  body.element = element;
-
-  body.size = options.size;
-
-
-  objects.push(body);
-
-  gameState.solarSystem.objects =
-    objects;
-
-  updateObjectCount();
-
-
-  return body;
-
-}
-
-
-// =========================================
-// STAR
-// =========================================
-
-function createStar(x, y) {
-
-  const star =
-    createObject(
-      "star",
-      x,
-      y,
-      {
-
-        size: 100,
-
-        mass: 5000,
-
-        radius: 50,
-
-        fixed: true,
-
-        background:
-          "radial-gradient(circle, #fff7b0 0%, #ffcc33 40%, #ff6600 100%)",
-
-        shadow:
-          "0 0 80px #ffbb33"
-
-      }
-    );
-
-
-  showMessage(
-    "⭐ STAR CREATED"
-  );
-
-
-  return star;
-
-}
-
-
-// =========================================
-// PLANET
-// =========================================
-
-function createPlanet(x, y) {
-
-  const planet =
-    createObject(
-      "planet",
-      x,
-      y,
-      {
-
-        size: 50,
-
-        mass: 50,
-
-        radius: 25,
-
-        background:
-          "radial-gradient(circle at 30% 30%, #6fd4ff, #176baf 50%, #082b52)",
-
-        shadow:
-          "0 0 20px #3b9fff"
-
-      }
-    );
-
-
-  // Find first star and create orbit
-
-  const star =
-    objects.find(
-      object =>
-        object.type === "star"
-    );
-
-
-  if (star) {
-
-    setOrbitVelocity(
-      planet,
-      star
+      y
     );
 
   }
 
 
-  showMessage(
-    "🪐 PLANET CREATED"
-  );
-
-
-  return planet;
-
-}
-
-
-// =========================================
-// MOON
-// =========================================
-
-function createMoon(x, y) {
-
-  return createObject(
-    "moon",
-    x,
-    y,
-    {
-
-      size: 25,
-
-      mass: 8,
-
-      radius: 12,
-
-      background:
-        "radial-gradient(circle at 30% 30%, #eeeeee, #777777)",
-
-      shadow:
-        "0 0 10px #999"
-
-    }
-  );
-
-}
-
-
-// =========================================
-// ASTEROID
-// =========================================
-
-function createAsteroid(x, y) {
-
-  return createObject(
-    "asteroid",
-    x,
-    y,
-    {
-
-      size: 18,
-
-      mass: 5,
-
-      radius: 9,
-
-      background:
-        "radial-gradient(circle, #9b8068, #3b2b24)"
-
-    }
-  );
-
-}
-
-
-// =========================================
-// BLACK HOLE
-// =========================================
-
-function createBlackHole(x, y) {
-
-  const blackHole =
-    createObject(
-      "black-hole",
-      x,
-      y,
-      {
-
-        size: 80,
-
-        mass: 10000,
-
-        radius: 40,
-
-        background:
-          "radial-gradient(circle, #000 40%, #331166 60%, #8c35ff 75%, transparent 76%)",
-
-        shadow:
-          "0 0 60px #8a2dff"
-
-      }
-    );
-
-
-  blackHole.isBlackHole = true;
-
-
-  showMessage(
-    "🕳️ BLACK HOLE CREATED"
-  );
-
-
-  return blackHole;
-
-}
-
-
-// =========================================
-// WORMHOLE
-// =========================================
-
-function createWormhole(x, y) {
-
-  const wormhole =
-    createObject(
-      "wormhole",
-      x,
-      y,
-      {
-
-        size: 70,
-
-        mass: 500,
-
-        radius: 35,
-
-        background:
-          "conic-gradient(#4cffff, #572cff, #ff4cff, #4cffff)",
-
-        shadow:
-          "0 0 50px #45eaff"
-
-      }
-    );
-
-
-  wormhole.isWormhole = true;
-
-  wormhole.element.style.animation =
-    "wormholeSpin 4s linear infinite";
-
-
-  return wormhole;
-
-}
-
-
-// =========================================
-// GREY HOLE
-// =========================================
-
-function createGreyHole(x, y) {
-
-  const greyHole =
-    createObject(
-      "grey-hole",
-      x,
-      y,
-      {
-
-        size: 75,
-
-        mass: 7000,
-
-        radius: 38,
-
-        background:
-          "radial-gradient(circle, #777 0%, #333 45%, #aaa 65%, #222 100%)",
-
-        shadow:
-          "0 0 45px #bbbbbb"
-
-      }
-    );
-
-
-  greyHole.isGreyHole = true;
-
-
-  return greyHole;
-
-}
-
-
-// =========================================
-// ANTIMATTER PLANET
-// =========================================
-
-function createAntimatterPlanet(x, y) {
-
-  const antimatter =
-    createObject(
-      "antimatter-planet",
-      x,
-      y,
-      {
-
-        size: 55,
-
-        mass: 45,
-
-        radius: 27,
-
-        background:
-          "radial-gradient(circle at 30% 30%, #ffb0ff, #b22cff 45%, #3d0066)",
-
-        shadow:
-          "0 0 35px #c13cff"
-
-      }
-    );
-
-
-  antimatter.isAntimatter = true;
-
-
-  showMessage(
-    "🟣 ANTIMATTER PLANET CREATED"
-  );
-
-
-  return antimatter;
-
-}
-
-
-// =========================================
-// GAME LOOP
-// =========================================
-
-let lastTime =
-  performance.now();
-
-
-function gameLoop(time) {
-
-  if (!animationRunning) return;
-
-
-  const deltaTime =
-    Math.min(
-      (time - lastTime) / 1000,
-      0.05
-    );
-
-  lastTime = time;
-
-
-  // Update gravity and movement
-
-  updatePhysics(
-    objects,
-    deltaTime * 60
-  );
-
-
-  // Black hole absorption
-
-  updateBlackHoles();
-
-
-  // Collisions
-
-  handleCollisions();
-
-
-  // Update visuals
-
-  updateObjectVisuals();
-
-
-  // Remove destroyed objects
-
-  removeDestroyedObjects();
-
-
-  requestAnimationFrame(
-    gameLoop
-  );
-
-}
-
-
-// =========================================
-// BLACK HOLE SYSTEM
-// =========================================
-
-function updateBlackHoles() {
-
-  const blackHoles =
-    objects.filter(
-      object =>
-        object.isBlackHole &&
-        !object.destroyed
-    );
-
-
-  blackHoles.forEach(
-    blackHole => {
-
-      objects.forEach(
-        object => {
-
-          if (
-            object === blackHole ||
-            object.destroyed
-          ) {
-            return;
-          }
-
-
-          const absorbed =
-            absorbObject(
-              blackHole,
-              object
-            );
-
-
-          if (absorbed) {
-
-            // Grow visual size
-
-            blackHole.size += 2;
-
-            blackHole.element.style.width =
-              `${blackHole.size}px`;
-
-            blackHole.element.style.height =
-              `${blackHole.size}px`;
-
-            blackHole.element.style.boxShadow =
-              `0 0 ${blackHole.size}px #8a2dff`;
-
-
-            showMessage(
-              "🕳️ BLACK HOLE ABSORBED AN OBJECT!"
-            );
-
-          }
-
-        }
-      );
-
-    }
-  );
-
-}
-
-
-// =========================================
-// COLLISIONS
-// =========================================
-
-function handleCollisions() {
-
-  const collisions =
-    findCollisions(objects);
-
-
-  collisions.forEach(
-    collision => {
-
-      const a =
-        collision.a;
-
-      const b =
-        collision.b;
-
-
-      if (
-        a.destroyed ||
-        b.destroyed
-      ) {
-        return;
-      }
-
-
-      // Antimatter reaction
-
-      if (
-        a.isAntimatter ||
-        b.isAntimatter
-      ) {
-
-        a.destroyed = true;
-        b.destroyed = true;
-
-        showMessage(
-          "🟣⚡ ANTIMATTER REACTION!"
-        );
-
-        return;
-
-      }
-
-
-      // Normal collision:
-      // smaller object is destroyed
-
-      if (a.mass >= b.mass) {
-
-        b.destroyed = true;
-
-      } else {
-
-        a.destroyed = true;
-
-      }
-
-
-      showMessage(
-        "💥 CELESTIAL COLLISION!"
-      );
-
-    }
-  );
-
-}
-
-
-// =========================================
-// UPDATE VISUALS
-// =========================================
-
-function updateObjectVisuals() {
-
-  objects.forEach(
-    object => {
-
-      if (
-        object.destroyed ||
-        !object.element
-      ) {
-        return;
-      }
-
-
-      object.element.style.left =
-        `${object.position.x}px`;
-
-      object.element.style.top =
-        `${object.position.y}px`;
-
-    }
-  );
-
-}
-
-
-// =========================================
-// REMOVE DESTROYED OBJECTS
-// =========================================
-
-function removeDestroyedObjects() {
-
-  for (
-    let i = objects.length - 1;
-    i >= 0;
-    i--
+  // Middle/right drag moves camera
+
+  if (
+    event.button === 1 ||
+    event.button === 2
   ) {
 
-    const object =
-      objects[i];
+    SolarSystem.dragging =
+      true;
 
+    SolarSystem.lastMouseX =
+      event.clientX;
 
-    if (
-      object.destroyed
-    ) {
-
-      if (
-        object.element
-      ) {
-
-        object.element.remove();
-
-      }
-
-
-      objects.splice(
-        i,
-        1
-      );
-
-    }
+    SolarSystem.lastMouseY =
+      event.clientY;
 
   }
 
-
-  gameState.solarSystem.objects =
-    objects;
-
-  updateObjectCount();
-
 }
 
 
 // =========================================
-// UI
+// HANDLE MOUSE MOVE
 // =========================================
 
-function highlightSelectedButton(button) {
+export function handleSolarMouseMove(
+  event
+) {
 
-  document
-    .querySelectorAll(
-      "#solarSystemScreen .toolButton"
-    )
-    .forEach(
-      item => {
-
-        item.style.outline =
-          "none";
-
-      }
-    );
+  if (
+    !SolarSystem.active ||
+    !SolarSystem.dragging
+  ) {
+    return;
+  }
 
 
-  button.style.outline =
-    "2px solid #8db7ff";
-
-}
-
-
-// =========================================
-// MESSAGE
-// =========================================
-
-function showMessage(text) {
-
-  const label =
-    canvas?.querySelector(
-      ".simulationLabel"
-    );
+  const dx =
+    event.clientX -
+    SolarSystem.lastMouseX;
 
 
-  if (!label) return;
+  const dy =
+    event.clientY -
+    SolarSystem.lastMouseY;
 
 
-  label.textContent = text;
-
-
-  clearTimeout(
-    label.messageTimeout
+  Camera.move(
+    -dx / Camera.zoom,
+    -dy / Camera.zoom
   );
 
 
-  label.messageTimeout =
-    setTimeout(
-      () => {
+  SolarSystem.lastMouseX =
+    event.clientX;
 
-        label.textContent =
-          "BUILD YOUR OWN UNIVERSE";
+  SolarSystem.lastMouseY =
+    event.clientY;
 
-      },
-      2000
-    );
+}
+
+
+// =========================================
+// HANDLE MOUSE UP
+// =========================================
+
+export function handleSolarMouseUp() {
+
+  SolarSystem.dragging =
+    false;
+
+}
+
+
+// =========================================
+// GET SOLAR SYSTEM
+// =========================================
+
+export function getSolarSystem() {
+
+  return SolarSystem;
 
 }
