@@ -1,420 +1,117 @@
-// =========================================
-// UNIVERSE SMASH
-// STARTUP SYSTEM
-// =========================================
+export function runStartup() {
 
-let started = false;
+    return new Promise(resolve => {
 
+        const screen =
+            document.getElementById(
+                "startup-screen"
+            );
 
-// -----------------------------------------
-// STARTUP CONFIGURATION
-// -----------------------------------------
+        if (!screen) {
 
-const STARTUP = {
+            resolve();
 
-  splashDuration: 1800,
+            return;
+        }
 
-  warningDuration: 2500,
 
-  loadingDuration: 2000
+        screen.innerHTML = `
 
-};
+            <div class="startup-container">
 
+                <div class="startup-title">
+                    UNIVERSE SMASH
+                </div>
 
-// -----------------------------------------
-// WAIT
-// -----------------------------------------
+                <div class="startup-subtitle">
+                    COSMIC SIMULATION ENGINE
+                </div>
 
-function wait(milliseconds) {
+                <div class="loading-container">
 
-  return new Promise(
-    resolve => {
+                    <div class="loading-bar">
 
-      setTimeout(
-        resolve,
-        milliseconds
-      );
+                        <div
+                            class="loading-progress"
+                            id="loading-progress"
+                        ></div>
 
-    }
-  );
+                    </div>
 
-}
+                </div>
 
+                <div
+                    class="press-start"
+                    id="press-start"
+                    style="display:none;"
+                >
+                    PRESS START
+                </div>
 
-// -----------------------------------------
-// GET STARTUP ELEMENT
-// -----------------------------------------
+            </div>
+        `;
 
-function getStartupScreen() {
 
-  return document.getElementById(
-    "startup-screen"
-  );
+        const progress =
+            document.getElementById(
+                "loading-progress"
+            );
 
-}
+        const start =
+            document.getElementById(
+                "press-start"
+            );
 
 
-// -----------------------------------------
-// SHOW MESSAGE
-// -----------------------------------------
+        let amount = 0;
 
-function showMessage(
-  title,
-  subtitle = ""
-) {
 
-  const screen =
-    getStartupScreen();
+        const interval =
+            setInterval(() => {
 
-  if (!screen) {
+                amount += 5;
 
-    console.warn(
-      "Startup screen not found."
-    );
+                progress.style.width =
+                    `${amount}%`;
 
-    return;
 
-  }
+                if (amount >= 100) {
 
+                    clearInterval(interval);
 
-  screen.innerHTML = `
+                    start.style.display =
+                        "block";
 
-    <div class="startup-content">
 
-      <h1>
-        ${title}
-      </h1>
+                    const begin = () => {
 
-      <p>
-        ${subtitle}
-      </p>
+                        screen.remove();
 
-    </div>
+                        window.removeEventListener(
+                            "keydown",
+                            begin
+                        );
 
-  `;
+                        window.removeEventListener(
+                            "pointerdown",
+                            begin
+                        );
 
-}
+                        resolve();
+                    };
 
 
-// -----------------------------------------
-// UNIVERSE SMASH SPLASH
-// -----------------------------------------
+                    window.addEventListener(
+                        "keydown",
+                        begin
+                    );
 
-async function showSplash() {
+                    window.addEventListener(
+                        "pointerdown",
+                        begin
+                    );
+                }
 
-  showMessage(
-
-    "🌌 UNIVERSE SMASH",
-
-    "A Cosmic Sandbox Experience"
-
-  );
-
-
-  await wait(
-    STARTUP.splashDuration
-  );
-
-}
-
-
-// -----------------------------------------
-// WARNING SCREEN
-// -----------------------------------------
-
-async function showWarning() {
-
-  showMessage(
-
-    "⚠️ WARNING",
-
-    "This game contains flashing visual effects and intense cosmic destruction."
-
-  );
-
-
-  await wait(
-    STARTUP.warningDuration
-  );
-
-}
-
-
-// -----------------------------------------
-// LOADING SCREEN
-// -----------------------------------------
-
-async function showLoading() {
-
-  const screen =
-    getStartupScreen();
-
-  if (!screen) return;
-
-
-  screen.innerHTML = `
-
-    <div class="startup-content">
-
-      <h1>
-        🌌 Loading Universe
-      </h1>
-
-      <div class="loading-bar">
-
-        <div
-          id="loading-progress"
-        ></div>
-
-      </div>
-
-      <p id="loading-text">
-        Preparing celestial objects...
-      </p>
-
-    </div>
-
-  `;
-
-
-  const progress =
-    document.getElementById(
-      "loading-progress"
-    );
-
-
-  const loadingText =
-    document.getElementById(
-      "loading-text"
-    );
-
-
-  const messages = [
-
-    "Preparing celestial objects...",
-
-    "Generating planets...",
-
-    "Initializing physics...",
-
-    "Loading cosmic effects...",
-
-    "Preparing weapons...",
-
-    "Almost ready..."
-
-  ];
-
-
-  for (
-    let i = 0;
-    i <= 100;
-    i += 5
-  ) {
-
-    if (progress) {
-
-      progress.style.width =
-        `${i}%`;
-
-    }
-
-
-    const messageIndex =
-      Math.min(
-        Math.floor(
-          i / 20
-        ),
-        messages.length - 1
-      );
-
-
-    if (loadingText) {
-
-      loadingText.textContent =
-        messages[messageIndex];
-
-    }
-
-
-    await wait(100);
-
-  }
-
-}
-
-
-// -----------------------------------------
-// PRESS START SCREEN
-// -----------------------------------------
-
-function showPressStart(
-  onStart
-) {
-
-  const screen =
-    getStartupScreen();
-
-  if (!screen) {
-
-    if (onStart) onStart();
-
-    return;
-
-  }
-
-
-  screen.innerHTML = `
-
-    <div class="startup-content">
-
-      <h1 class="game-title">
-
-        🌌 UNIVERSE SMASH
-
-      </h1>
-
-
-      <p>
-        Create. Experiment. Destroy.
-      </p>
-
-
-      <button
-        id="start-button"
-      >
-
-        PRESS START
-
-      </button>
-
-
-      <p class="startup-small">
-
-        Click to begin
-
-      </p>
-
-    </div>
-
-  `;
-
-
-  const startButton =
-    document.getElementById(
-      "start-button"
-    );
-
-
-  startButton.addEventListener(
-    "click",
-
-    () => {
-
-      if (started) return;
-
-      started = true;
-
-
-      screen.style.opacity = "0";
-
-
-      setTimeout(
-        () => {
-
-          screen.style.display =
-            "none";
-
-
-          if (onStart) {
-
-            onStart();
-
-          }
-
-        },
-        700
-      );
-
-    }
-
-  );
-
-}
-
-
-// -----------------------------------------
-// RUN STARTUP SEQUENCE
-// -----------------------------------------
-
-export async function runStartup(
-  onStart
-) {
-
-  const screen =
-    getStartupScreen();
-
-  if (!screen) {
-
-    console.warn(
-      "No startup screen found."
-    );
-
-    if (onStart) onStart();
-
-    return;
-
-  }
-
-
-  screen.style.display =
-    "flex";
-
-  screen.style.opacity =
-    "1";
-
-
-  await showSplash();
-
-  await showWarning();
-
-  await showLoading();
-
-
-  showPressStart(
-    onStart
-  );
-
-}
-
-
-// -----------------------------------------
-// SKIP STARTUP
-// -----------------------------------------
-
-export function skipStartup(
-  onStart
-) {
-
-  const screen =
-    getStartupScreen();
-
-
-  if (screen) {
-
-    screen.style.display =
-      "none";
-
-  }
-
-
-  started = true;
-
-
-  if (onStart) {
-
-    onStart();
-
-  }
-
+            }, 40);
+    });
 }
