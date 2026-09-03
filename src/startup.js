@@ -1,196 +1,420 @@
 // =========================================
 // UNIVERSE SMASH
-// STARTUP SEQUENCE
+// STARTUP SYSTEM
 // =========================================
 
-import { showScreen } from "./main.js";
+let started = false;
 
 
-export function startStartupSequence() {
+// -----------------------------------------
+// STARTUP CONFIGURATION
+// -----------------------------------------
 
-  console.log("🚀 Starting Universe Smash startup sequence...");
+const STARTUP = {
 
-  const startupScreen = document.getElementById("startupScreen");
+  splashDuration: 1800,
 
-  const studioSplash = document.getElementById("studioSplash");
-  const techSplash = document.getElementById("techSplash");
-  const warningSplash = document.getElementById("warningSplash");
-  const loadingSplash = document.getElementById("loadingSplash");
+  warningDuration: 2500,
 
-  const warningButton = document.getElementById(
-    "warningContinueButton"
+  loadingDuration: 2000
+
+};
+
+
+// -----------------------------------------
+// WAIT
+// -----------------------------------------
+
+function wait(milliseconds) {
+
+  return new Promise(
+    resolve => {
+
+      setTimeout(
+        resolve,
+        milliseconds
+      );
+
+    }
   );
-
-  // Make sure startup screen is visible
-  startupScreen.classList.remove("hidden");
-  startupScreen.classList.add("active");
-
-  // -----------------------------------------
-  // HELPER: SHOW ONE STARTUP PANEL
-  // -----------------------------------------
-
-  function showPanel(panel) {
-
-    const panels = [
-      studioSplash,
-      techSplash,
-      warningSplash,
-      loadingSplash
-    ];
-
-    panels.forEach((item) => {
-      item.classList.add("hidden");
-    });
-
-    panel.classList.remove("hidden");
-
-  }
-
-
-  // -----------------------------------------
-  // STUDIO SPLASH
-  // -----------------------------------------
-
-  showPanel(studioSplash);
-
-  setTimeout(() => {
-
-    // -----------------------------------------
-    // TECHNOLOGY SPLASH
-    // -----------------------------------------
-
-    showPanel(techSplash);
-
-    setTimeout(() => {
-
-      // -----------------------------------------
-      // SAFETY NOTICE
-      // -----------------------------------------
-
-      showPanel(warningSplash);
-
-    }, 2500);
-
-  }, 2500);
-
-
-  // -----------------------------------------
-  // CONTINUE BUTTON
-  // -----------------------------------------
-
-  warningButton.addEventListener("click", () => {
-
-    beginLoading();
-
-  }, { once: true });
 
 }
 
 
-// =========================================
-// LOADING SEQUENCE
-// =========================================
+// -----------------------------------------
+// GET STARTUP ELEMENT
+// -----------------------------------------
 
-function beginLoading() {
+function getStartupScreen() {
 
-  const studioSplash = document.getElementById("studioSplash");
-  const techSplash = document.getElementById("techSplash");
-  const warningSplash = document.getElementById("warningSplash");
-  const loadingSplash = document.getElementById("loadingSplash");
+  return document.getElementById(
+    "startup-screen"
+  );
 
-  // Hide previous panels
-  studioSplash.classList.add("hidden");
-  techSplash.classList.add("hidden");
-  warningSplash.classList.add("hidden");
-
-  // Show loading screen
-  loadingSplash.classList.remove("hidden");
+}
 
 
-  // Progress bars
-  const planetProgress =
-    document.getElementById("planetProgress");
+// -----------------------------------------
+// SHOW MESSAGE
+// -----------------------------------------
 
-  const starProgress =
-    document.getElementById("starProgress");
+function showMessage(
+  title,
+  subtitle = ""
+) {
 
-  const physicsProgress =
-    document.getElementById("physicsProgress");
+  const screen =
+    getStartupScreen();
 
-  const effectsProgress =
-    document.getElementById("effectsProgress");
+  if (!screen) {
+
+    console.warn(
+      "Startup screen not found."
+    );
+
+    return;
+
+  }
+
+
+  screen.innerHTML = `
+
+    <div class="startup-content">
+
+      <h1>
+        ${title}
+      </h1>
+
+      <p>
+        ${subtitle}
+      </p>
+
+    </div>
+
+  `;
+
+}
+
+
+// -----------------------------------------
+// UNIVERSE SMASH SPLASH
+// -----------------------------------------
+
+async function showSplash() {
+
+  showMessage(
+
+    "🌌 UNIVERSE SMASH",
+
+    "A Cosmic Sandbox Experience"
+
+  );
+
+
+  await wait(
+    STARTUP.splashDuration
+  );
+
+}
+
+
+// -----------------------------------------
+// WARNING SCREEN
+// -----------------------------------------
+
+async function showWarning() {
+
+  showMessage(
+
+    "⚠️ WARNING",
+
+    "This game contains flashing visual effects and intense cosmic destruction."
+
+  );
+
+
+  await wait(
+    STARTUP.warningDuration
+  );
+
+}
+
+
+// -----------------------------------------
+// LOADING SCREEN
+// -----------------------------------------
+
+async function showLoading() {
+
+  const screen =
+    getStartupScreen();
+
+  if (!screen) return;
+
+
+  screen.innerHTML = `
+
+    <div class="startup-content">
+
+      <h1>
+        🌌 Loading Universe
+      </h1>
+
+      <div class="loading-bar">
+
+        <div
+          id="loading-progress"
+        ></div>
+
+      </div>
+
+      <p id="loading-text">
+        Preparing celestial objects...
+      </p>
+
+    </div>
+
+  `;
+
+
+  const progress =
+    document.getElementById(
+      "loading-progress"
+    );
+
 
   const loadingText =
-    document.getElementById("loadingText");
+    document.getElementById(
+      "loading-text"
+    );
 
 
-  let progress = 0;
+  const messages = [
+
+    "Preparing celestial objects...",
+
+    "Generating planets...",
+
+    "Initializing physics...",
+
+    "Loading cosmic effects...",
+
+    "Preparing weapons...",
+
+    "Almost ready..."
+
+  ];
 
 
-  // -----------------------------------------
-  // FAKE LOADING PROGRESS
-  // -----------------------------------------
+  for (
+    let i = 0;
+    i <= 100;
+    i += 5
+  ) {
 
-  const loadingInterval = setInterval(() => {
+    if (progress) {
 
-    progress += 2;
-
-    planetProgress.style.width =
-      `${Math.min(progress + 10, 100)}%`;
-
-    starProgress.style.width =
-      `${Math.min(progress + 20, 100)}%`;
-
-    physicsProgress.style.width =
-      `${Math.min(progress, 100)}%`;
-
-    effectsProgress.style.width =
-      `${Math.min(progress + 5, 100)}%`;
-
-
-    // Update text
-
-    if (progress < 30) {
-
-      loadingText.textContent =
-        "GENERATING PLANETS...";
-
-    } else if (progress < 55) {
-
-      loadingText.textContent =
-        "IGNITING STARS...";
-
-    } else if (progress < 80) {
-
-      loadingText.textContent =
-        "INITIALIZING PHYSICS...";
-
-    } else {
-
-      loadingText.textContent =
-        "UNIVERSE READY...";
+      progress.style.width =
+        `${i}%`;
 
     }
 
 
-    // -----------------------------------------
-    // FINISHED LOADING
-    // -----------------------------------------
+    const messageIndex =
+      Math.min(
+        Math.floor(
+          i / 20
+        ),
+        messages.length - 1
+      );
 
-    if (progress >= 100) {
 
-      clearInterval(loadingInterval);
+    if (loadingText) {
 
-      setTimeout(() => {
-
-        console.log("🌌 Universe initialized!");
-
-        showScreen("titleScreen");
-
-      }, 700);
+      loadingText.textContent =
+        messages[messageIndex];
 
     }
 
-  }, 45);
+
+    await wait(100);
+
+  }
+
+}
+
+
+// -----------------------------------------
+// PRESS START SCREEN
+// -----------------------------------------
+
+function showPressStart(
+  onStart
+) {
+
+  const screen =
+    getStartupScreen();
+
+  if (!screen) {
+
+    if (onStart) onStart();
+
+    return;
+
+  }
+
+
+  screen.innerHTML = `
+
+    <div class="startup-content">
+
+      <h1 class="game-title">
+
+        🌌 UNIVERSE SMASH
+
+      </h1>
+
+
+      <p>
+        Create. Experiment. Destroy.
+      </p>
+
+
+      <button
+        id="start-button"
+      >
+
+        PRESS START
+
+      </button>
+
+
+      <p class="startup-small">
+
+        Click to begin
+
+      </p>
+
+    </div>
+
+  `;
+
+
+  const startButton =
+    document.getElementById(
+      "start-button"
+    );
+
+
+  startButton.addEventListener(
+    "click",
+
+    () => {
+
+      if (started) return;
+
+      started = true;
+
+
+      screen.style.opacity = "0";
+
+
+      setTimeout(
+        () => {
+
+          screen.style.display =
+            "none";
+
+
+          if (onStart) {
+
+            onStart();
+
+          }
+
+        },
+        700
+      );
+
+    }
+
+  );
+
+}
+
+
+// -----------------------------------------
+// RUN STARTUP SEQUENCE
+// -----------------------------------------
+
+export async function runStartup(
+  onStart
+) {
+
+  const screen =
+    getStartupScreen();
+
+  if (!screen) {
+
+    console.warn(
+      "No startup screen found."
+    );
+
+    if (onStart) onStart();
+
+    return;
+
+  }
+
+
+  screen.style.display =
+    "flex";
+
+  screen.style.opacity =
+    "1";
+
+
+  await showSplash();
+
+  await showWarning();
+
+  await showLoading();
+
+
+  showPressStart(
+    onStart
+  );
+
+}
+
+
+// -----------------------------------------
+// SKIP STARTUP
+// -----------------------------------------
+
+export function skipStartup(
+  onStart
+) {
+
+  const screen =
+    getStartupScreen();
+
+
+  if (screen) {
+
+    screen.style.display =
+      "none";
+
+  }
+
+
+  started = true;
+
+
+  if (onStart) {
+
+    onStart();
+
+  }
 
 }
