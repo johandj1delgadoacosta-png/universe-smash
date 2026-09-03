@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+
+    <!-- Basic page information -->
     <meta charset="UTF-8">
 
     <meta
@@ -11,7 +13,12 @@
 
     <meta
         name="description"
-        content="Universe Smash - A cosmic physics sandbox"
+        content="Universe Smash - A cosmic physics sandbox game"
+    >
+
+    <meta
+        name="author"
+        content="Universe Smash"
     >
 
     <meta
@@ -21,15 +28,21 @@
 
     <title>Universe Smash</title>
 
-    <!-- Main stylesheet -->
-    <link rel="stylesheet" href="./style.css">
+
+    <!-- Game stylesheet -->
+    <link
+        rel="stylesheet"
+        href="./style.css"
+    >
+
 </head>
+
 
 <body>
 
-    <!-- =====================================================
+    <!-- =========================================
          STARTUP SCREEN
-    ====================================================== -->
+    ========================================== -->
 
     <div
         id="startup-screen"
@@ -51,8 +64,8 @@
                 <div class="loading-bar">
 
                     <div
-                        class="loading-progress"
                         id="loading-progress"
+                        class="loading-progress"
                     ></div>
 
                 </div>
@@ -60,8 +73,8 @@
             </div>
 
             <div
-                class="press-start"
                 id="press-start"
+                class="press-start"
                 style="display: none;"
             >
                 PRESS START
@@ -72,13 +85,13 @@
     </div>
 
 
-    <!-- =====================================================
+    <!-- =========================================
          MAIN MENU
-    ====================================================== -->
+    ========================================== -->
 
     <div
         id="main-menu"
-        style="display: none;"
+        aria-label="Main menu"
     >
 
         <div class="menu-container">
@@ -120,302 +133,285 @@
     </div>
 
 
-    <!-- =====================================================
-         GAME
-    ====================================================== -->
+    <!-- =========================================
+         GAME CANVAS
+    ========================================== -->
 
-    <main
-        id="game-container"
-        style="display: none;"
+    <canvas
+        id="game-canvas"
+        aria-label="Universe Smash game canvas"
+    >
+        Your browser does not support HTML5 Canvas.
+    </canvas>
+
+
+    <!-- =========================================
+         SOLAR SYSTEM MODE MENU
+    ========================================== -->
+
+    <div
+        id="sandbox-menu"
+        aria-label="Solar System controls"
     >
 
-        <canvas
-            id="game-canvas"
-            width="1280"
-            height="720"
-            aria-label="Universe Smash game canvas"
-        ></canvas>
-
-
-        <!-- =================================================
-             SOLAR SYSTEM MODE MENU
-        ================================================== -->
-
-        <div
-            id="sandbox-menu"
-            style="display: none;"
-        >
-
-            <div class="menu-section-title">
-                SOLAR SYSTEM
-            </div>
-
-            <button
-                id="spawn-star"
-                class="game-button"
-                type="button"
-            >
-                ⭐ STAR
-            </button>
-
-            <button
-                id="spawn-planet"
-                class="game-button"
-                type="button"
-            >
-                🌎 PLANET
-            </button>
-
-            <button
-                id="spawn-moon"
-                class="game-button"
-                type="button"
-            >
-                🌙 MOON
-            </button>
-
-            <button
-                id="spawn-asteroid"
-                class="game-button"
-                type="button"
-            >
-                ☄️ ASTEROID
-            </button>
-
-            <button
-                id="spawn-antimatter"
-                class="game-button"
-                type="button"
-            >
-                💜 ANTIMATTER WORLD
-            </button>
-
-            <button
-                id="spawn-black-hole"
-                class="game-button"
-                type="button"
-            >
-                🕳️ BLACK HOLE
-            </button>
-
-            <button
-                id="spawn-grey-hole"
-                class="game-button"
-                type="button"
-            >
-                🔴 GREY HOLE
-            </button>
-
-            <button
-                id="spawn-wormhole"
-                class="game-button"
-                type="button"
-            >
-                🌀 WORMHOLE
-            </button>
-
-            <button
-                id="reset-camera"
-                class="game-button"
-                type="button"
-            >
-                🎯 RESET CAMERA
-            </button>
-
-            <button
-                id="clear-system"
-                class="game-button"
-                type="button"
-            >
-                🗑️ CLEAR SYSTEM
-            </button>
-
-            <button
-                id="solar-menu"
-                class="game-button"
-                type="button"
-            >
-                ← MAIN MENU
-            </button>
-
+        <div class="menu-section-title">
+            SOLAR SYSTEM
         </div>
 
-
-        <!-- =================================================
-             PLANET MODE WEAPONS
-        ================================================== -->
-
-        <div
-            id="planet-weapon-menu"
-            style="display: none;"
+        <button
+            class="game-button"
+            data-type="star"
+            type="button"
         >
+            ⭐ STAR
+        </button>
 
-            <div class="menu-section-title">
-                PLANET MODE
-            </div>
+        <button
+            class="game-button"
+            data-type="blue-hypergiant"
+            type="button"
+        >
+            🔵 BLUE HYPERGIANT
+        </button>
 
-            <button
-                id="weapon-laser"
-                class="game-button"
-                type="button"
-            >
-                🔴 LASER
-            </button>
+        <button
+            class="game-button"
+            data-type="contact-binary"
+            type="button"
+        >
+            ⭐ CONTACT BINARY
+        </button>
 
-            <button
-                id="weapon-ice-laser"
-                class="game-button"
-                type="button"
-            >
-                ❄️ ICE LASER
-            </button>
+        <button
+            class="game-button"
+            data-type="planet"
+            type="button"
+        >
+            🌎 PLANET
+        </button>
 
-            <button
-                id="weapon-asteroid"
-                class="game-button"
-                type="button"
-            >
-                ☄️ ASTEROID
-            </button>
+        <button
+            class="game-button"
+            data-type="moon"
+            type="button"
+        >
+            🌙 MOON
+        </button>
 
-            <button
-                id="weapon-mystery"
-                class="game-button"
-                type="button"
-            >
-                ❓ MYSTERY MATTER
-            </button>
+        <button
+            class="game-button"
+            data-type="asteroid"
+            type="button"
+        >
+            ☄️ ASTEROID
+        </button>
 
-            <button
-                id="weapon-alien"
-                class="game-button"
-                type="button"
-            >
-                👽 ALIEN SHIP
-            </button>
+        <button
+            class="game-button"
+            data-type="antimatter"
+            type="button"
+        >
+            💜 ANTIMATTER WORLD
+        </button>
 
-            <button
-                id="weapon-antimatter"
-                class="game-button"
-                type="button"
-            >
-                💥 ANTIMATTER
-            </button>
+        <button
+            class="game-button"
+            data-type="black-hole"
+            type="button"
+        >
+            🕳️ BLACK HOLE
+        </button>
 
-            <button
-                id="planet-menu"
-                class="game-button"
-                type="button"
-            >
-                ← MAIN MENU
-            </button>
+        <button
+            class="game-button"
+            data-type="grey-hole"
+            type="button"
+        >
+            🔴 GREY HOLE
+        </button>
 
+        <button
+            class="game-button"
+            data-type="wormhole"
+            type="button"
+        >
+            🌀 WORMHOLE
+        </button>
+
+        <button
+            id="solar-reset"
+            class="game-button"
+            type="button"
+        >
+            🎯 RESET CAMERA
+        </button>
+
+        <button
+            id="solar-clear"
+            class="game-button"
+            type="button"
+        >
+            🗑️ CLEAR SYSTEM
+        </button>
+
+        <button
+            id="solar-menu"
+            class="game-button"
+            type="button"
+        >
+            ← MAIN MENU
+        </button>
+
+    </div>
+
+
+    <!-- =========================================
+         PLANET MODE WEAPON MENU
+    ========================================== -->
+
+    <div
+        id="planet-weapon-menu"
+        aria-label="Planet Mode weapons"
+    >
+
+        <div class="menu-section-title">
+            PLANET MODE
         </div>
 
-
-        <!-- =================================================
-             SETTINGS
-        ================================================== -->
-
-        <div
-            id="settings-panel"
-            style="display: none;"
+        <button
+            class="game-button"
+            data-weapon="laser"
+            type="button"
         >
+            🔴 LASER
+        </button>
 
-            <div class="settings-panel">
+        <button
+            class="game-button"
+            data-weapon="ice"
+            type="button"
+        >
+            ❄️ ICE LASER
+        </button>
 
-                <div class="settings-title">
-                    SETTINGS
-                </div>
+        <button
+            class="game-button"
+            data-weapon="asteroid"
+            type="button"
+        >
+            ☄️ ASTEROID
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="mystery"
+            type="button"
+        >
+            ❓ MYSTERY MATTER
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="alien"
+            type="button"
+        >
+            👽 ALIEN SHIP
+        </button>
+
+        <button
+            class="game-button"
+            data-weapon="antimatter"
+            type="button"
+        >
+            💜 ANTIMATTER
+        </button>
+
+        <button
+            id="planet-reset"
+            class="game-button"
+            type="button"
+        >
+            🔄 RESET PLANET
+        </button>
+
+        <button
+            id="planet-menu"
+            class="game-button"
+            type="button"
+        >
+            ← MAIN MENU
+        </button>
+
+    </div>
+
+
+    <!-- =========================================
+         GAME INFORMATION
+    ========================================== -->
+
+    <div
+        id="game-info"
+        aria-label="Game information"
+    >
+
+        <div id="object-count">
+            Objects: 0
+        </div>
+
+        <div id="zoom-display">
+            Zoom: 100%
+        </div>
+
+        <div id="mode-display">
+            MENU
+        </div>
+
+    </div>
+
+
+    <!-- =========================================
+         PAUSE MENU
+    ========================================== -->
+
+    <div
+        id="pause-menu"
+        aria-label="Pause menu"
+    >
+
+        <div class="menu-container">
+
+            <div class="menu-title">
+                PAUSED
+            </div>
+
+            <div class="menu-buttons">
 
                 <button
-                    id="settings-close"
-                    class="game-button"
+                    id="resume-button"
+                    class="menu-button"
                     type="button"
                 >
-                    CLOSE
+                    RESUME
+                </button>
+
+                <button
+                    id="pause-main-menu-button"
+                    class="menu-button"
+                    type="button"
+                >
+                    MAIN MENU
                 </button>
 
             </div>
 
         </div>
 
-
-        <!-- =================================================
-             GAME INFORMATION
-        ================================================== -->
-
-        <div
-            id="game-info"
-            style="display: none;"
-        >
-
-            <div id="object-count">
-                Objects: 0
-            </div>
-
-            <div id="zoom-display">
-                Zoom: 100%
-            </div>
-
-        </div>
+    </div>
 
 
-        <!-- =================================================
-             CROSSHAIR
-        ================================================== -->
-
-        <div
-            id="crosshair"
-            style="display: none;"
-        ></div>
-
-
-        <!-- =================================================
-             PAUSE MENU
-        ================================================== -->
-
-        <div
-            id="pause-menu"
-            style="display: none;"
-        >
-
-            <div class="menu-container">
-
-                <div class="menu-title">
-                    PAUSED
-                </div>
-
-                <div class="menu-buttons">
-
-                    <button
-                        id="resume-button"
-                        class="menu-button"
-                        type="button"
-                    >
-                        RESUME
-                    </button>
-
-                    <button
-                        id="pause-menu-button"
-                        class="menu-button"
-                        type="button"
-                    >
-                        MAIN MENU
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </main>
-
-
-    <!-- =====================================================
-         GAME ENGINE
-    ====================================================== -->
+    <!-- =========================================
+         GAME JAVASCRIPT
+    ========================================== -->
 
     <script
         type="module"
