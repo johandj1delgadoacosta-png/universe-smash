@@ -1,335 +1,279 @@
 // =========================================
 // UNIVERSE SMASH
-// PARTICLE EFFECTS SYSTEM
+// PARTICLE SYSTEM
 // =========================================
 
-// This system works with Three.js once the
-// renderer and scenes are connected.
-
-// =========================================
-// PARTICLE STORAGE
-// =========================================
-
-const activeParticles = [];
+const particles = [];
 
 
-// =========================================
-// CREATE PARTICLE BURST
-// =========================================
+// -----------------------------------------
+// CREATE PARTICLE
+// -----------------------------------------
 
-export function createParticleBurst(
-  THREE,
-  scene,
-  position,
+export function createParticle(
+  x,
+  y,
   options = {}
 ) {
 
-  const count = options.count ?? 80;
-  const size = options.size ?? 0.12;
-  const speed = options.speed ?? 4;
-  const lifetime = options.lifetime ?? 2;
-  const color = options.color ?? 0xffffff;
+  const particle = {
 
-  const geometry =
-    new THREE.BufferGeometry();
+    x,
+    y,
 
-  const positions = [];
-  const velocities = [];
+    velocityX:
+      options.velocityX ??
+      (Math.random() - 0.5) * 4,
 
-  for (let i = 0; i < count; i++) {
+    velocityY:
+      options.velocityY ??
+      (Math.random() - 0.5) * 4,
 
-    positions.push(
-      position.x,
-      position.y,
-      position.z
+    size:
+      options.size ??
+      4,
+
+    color:
+      options.color ??
+      "#ffffff",
+
+    life:
+      options.life ??
+      60,
+
+    maxLife:
+      options.life ??
+      60,
+
+    shrink:
+      options.shrink ??
+      true,
+
+    gravity:
+      options.gravity ??
+      0,
+
+    glow:
+      options.glow ??
+      false
+
+  };
+
+
+  particles.push(
+    particle
+  );
+
+
+  return particle;
+
+}
+
+
+// -----------------------------------------
+// CREATE PARTICLE EXPLOSION
+// -----------------------------------------
+
+export function createExplosion(
+  x,
+  y,
+  options = {}
+) {
+
+  const count =
+    options.count ?? 40;
+
+  const color =
+    options.color ?? "#ff7722";
+
+  const size =
+    options.size ?? 6;
+
+  const speed =
+    options.speed ?? 6;
+
+
+  for (
+    let i = 0;
+    i < count;
+    i++
+  ) {
+
+    const angle =
+      Math.random() *
+      Math.PI * 2;
+
+
+    const particleSpeed =
+      Math.random() *
+      speed;
+
+
+    createParticle(
+      x,
+      y,
+      {
+
+        velocityX:
+          Math.cos(angle) *
+          particleSpeed,
+
+        velocityY:
+          Math.sin(angle) *
+          particleSpeed,
+
+        size:
+          Math.random() *
+          size +
+          2,
+
+        color,
+
+        life:
+          30 +
+          Math.random() * 50,
+
+        shrink:
+          true,
+
+        glow:
+          true
+
+      }
     );
-
-    const direction =
-      new THREE.Vector3(
-        Math.random() - 0.5,
-        Math.random() - 0.5,
-        Math.random() - 0.5
-      ).normalize();
-
-    velocities.push({
-      x: direction.x * speed * Math.random(),
-      y: direction.y * speed * Math.random(),
-      z: direction.z * speed * Math.random()
-    });
 
   }
 
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(
-      positions,
-      3
-    )
-  );
+}
 
-  const material =
-    new THREE.PointsMaterial({
+
+// -----------------------------------------
+// CREATE IMPACT EFFECT
+// -----------------------------------------
+
+export function createImpact(
+  x,
+  y,
+  color = "#ffffff"
+) {
+
+  createExplosion(
+    x,
+    y,
+    {
+
+      count: 18,
+
       color,
-      size,
-      transparent: true,
-      opacity: 1,
-      depthWrite: false
-    });
 
-  const particles =
-    new THREE.Points(
-      geometry,
-      material
-    );
+      size: 4,
 
-  scene.add(particles);
+      speed: 4
 
-  activeParticles.push({
-    particles,
-    velocities,
-    lifetime,
-    age: 0
-  });
-
-  return particles;
-
-}
-
-
-// =========================================
-// IMPACT EXPLOSION
-// =========================================
-
-export function createImpactEffect(
-  THREE,
-  scene,
-  position
-) {
-
-  return createParticleBurst(
-    THREE,
-    scene,
-    position,
-    {
-      count: 100,
-      size: 0.15,
-      speed: 5,
-      lifetime: 1.5,
-      color: 0xffaa33
     }
   );
 
 }
 
 
-// =========================================
-// PLANET EXPLOSION
-// =========================================
-
-export function createPlanetExplosion(
-  THREE,
-  scene,
-  position
-) {
-
-  return createParticleBurst(
-    THREE,
-    scene,
-    position,
-    {
-      count: 350,
-      size: 0.25,
-      speed: 8,
-      lifetime: 4,
-      color: 0xff6633
-    }
-  );
-
-}
-
-
-// =========================================
-// SUPERNOVA
-// =========================================
-
-export function createSupernovaEffect(
-  THREE,
-  scene,
-  position
-) {
-
-  return createParticleBurst(
-    THREE,
-    scene,
-    position,
-    {
-      count: 700,
-      size: 0.3,
-      speed: 15,
-      lifetime: 6,
-      color: 0xffe0a0
-    }
-  );
-
-}
-
-
-// =========================================
-// ICE EFFECT
-// =========================================
-
-export function createIceEffect(
-  THREE,
-  scene,
-  position
-) {
-
-  return createParticleBurst(
-    THREE,
-    scene,
-    position,
-    {
-      count: 100,
-      size: 0.12,
-      speed: 2,
-      lifetime: 3,
-      color: 0x9deaff
-    }
-  );
-
-}
-
-
-// =========================================
-// LAVA EFFECT
-// =========================================
-
-export function createLavaEffect(
-  THREE,
-  scene,
-  position
-) {
-
-  return createParticleBurst(
-    THREE,
-    scene,
-    position,
-    {
-      count: 150,
-      size: 0.18,
-      speed: 4,
-      lifetime: 3,
-      color: 0xff3b0a
-    }
-  );
-
-}
-
-
-// =========================================
+// -----------------------------------------
 // ANTIMATTER EFFECT
-// =========================================
+// -----------------------------------------
 
 export function createAntimatterEffect(
-  THREE,
-  scene,
-  position
+  x,
+  y
 ) {
 
-  return createParticleBurst(
-    THREE,
-    scene,
-    position,
+  createExplosion(
+    x,
+    y,
     {
-      count: 400,
-      size: 0.22,
-      speed: 10,
-      lifetime: 5,
-      color: 0xc45cff
+
+      count: 100,
+
+      color: "#d84cff",
+
+      size: 10,
+
+      speed: 12
+
+    }
+  );
+
+
+  createExplosion(
+    x,
+    y,
+    {
+
+      count: 60,
+
+      color: "#ffffff",
+
+      size: 7,
+
+      speed: 9
+
     }
   );
 
 }
 
 
-// =========================================
+// -----------------------------------------
 // UPDATE PARTICLES
-// =========================================
+// -----------------------------------------
 
 export function updateParticles(
-  deltaTime
+  deltaTime = 1
 ) {
 
   for (
-    let i = activeParticles.length - 1;
+    let i =
+      particles.length - 1;
     i >= 0;
     i--
   ) {
 
-    const effect =
-      activeParticles[i];
+    const particle =
+      particles[i];
 
-    effect.age += deltaTime;
 
-    const positions =
-      effect.particles.geometry.attributes.position;
+    particle.velocityY +=
+      particle.gravity *
+      deltaTime;
 
-    for (
-      let p = 0;
-      p < effect.velocities.length;
-      p++
+
+    particle.x +=
+      particle.velocityX *
+      deltaTime;
+
+    particle.y +=
+      particle.velocityY *
+      deltaTime;
+
+
+    particle.life -=
+      deltaTime;
+
+
+    if (
+      particle.shrink
     ) {
 
-      const velocity =
-        effect.velocities[p];
-
-      positions.array[p * 3] +=
-        velocity.x * deltaTime;
-
-      positions.array[p * 3 + 1] +=
-        velocity.y * deltaTime;
-
-      positions.array[p * 3 + 2] +=
-        velocity.z * deltaTime;
-
-      // Small gravity effect
-
-      velocity.y -=
-        0.5 * deltaTime;
+      particle.size *=
+        0.97;
 
     }
 
-    positions.needsUpdate = true;
-
-    // Fade out
-
-    const remaining =
-      1 -
-      effect.age / effect.lifetime;
-
-    effect.particles.material.opacity =
-      Math.max(0, remaining);
-
-    // Remove finished particles
 
     if (
-      effect.age >=
-      effect.lifetime
+      particle.life <= 0 ||
+      particle.size < 0.2
     ) {
 
-      const parent =
-        effect.particles.parent;
-
-      if (parent) {
-        parent.remove(
-          effect.particles
-        );
-      }
-
-      effect.particles.geometry.dispose();
-      effect.particles.material.dispose();
-
-      activeParticles.splice(
+      particles.splice(
         i,
         1
       );
@@ -341,30 +285,96 @@ export function updateParticles(
 }
 
 
-// =========================================
-// CLEAR ALL PARTICLES
-// =========================================
+// -----------------------------------------
+// DRAW PARTICLES
+// -----------------------------------------
 
-export function clearParticles() {
+export function drawParticles(
+  ctx,
+  camera,
+  canvas
+) {
 
-  activeParticles.forEach(
-    (effect) => {
+  particles.forEach(
+    particle => {
 
-      const parent =
-        effect.particles.parent;
-
-      if (parent) {
-        parent.remove(
-          effect.particles
+      const position =
+        camera.worldToScreen(
+          particle.x,
+          particle.y,
+          canvas
         );
+
+
+      const alpha =
+        Math.max(
+          0,
+          particle.life /
+          particle.maxLife
+        );
+
+
+      ctx.save();
+
+      ctx.globalAlpha =
+        alpha;
+
+
+      if (
+        particle.glow
+      ) {
+
+        ctx.shadowBlur =
+          particle.size * 3;
+
+        ctx.shadowColor =
+          particle.color;
+
       }
 
-      effect.particles.geometry.dispose();
-      effect.particles.material.dispose();
+
+      ctx.fillStyle =
+        particle.color;
+
+
+      ctx.beginPath();
+
+      ctx.arc(
+        position.x,
+        position.y,
+        particle.size *
+          camera.zoom,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+      ctx.restore();
 
     }
   );
 
-  activeParticles.length = 0;
+}
+
+
+// -----------------------------------------
+// CLEAR PARTICLES
+// -----------------------------------------
+
+export function clearParticles() {
+
+  particles.length = 0;
+
+}
+
+
+// -----------------------------------------
+// GET PARTICLES
+// -----------------------------------------
+
+export function getParticles() {
+
+  return particles;
 
 }
