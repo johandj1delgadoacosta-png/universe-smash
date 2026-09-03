@@ -3,251 +3,303 @@
 // AUDIO SYSTEM
 // =========================================
 
-// Audio storage
+const AudioSystem = {
 
-const sounds = new Map();
+  musicVolume: 0.35,
+  soundVolume: 0.7,
 
-let music = null;
+  muted: false,
 
+  currentMusic: null,
 
-// =========================================
-// LOAD A SOUND
-// =========================================
-
-export function loadSound(name, src, volume = 1) {
-
-  const audio = new Audio(src);
-
-  audio.preload = "auto";
-  audio.volume = volume;
-
-  sounds.set(name, audio);
-
-  return audio;
-
-}
+  sounds: {},
 
 
-// =========================================
-// PLAY A SOUND
-// =========================================
+  // -----------------------------------------
+  // INITIALIZE
+  // -----------------------------------------
 
-export function playSound(name, options = {}) {
+  init() {
 
-  const original = sounds.get(name);
+    console.log("🔊 Universe Smash Audio System Ready");
 
-  if (!original) {
-    console.warn(`Sound "${name}" has not been loaded.`);
-    return;
+  },
+
+
+  // -----------------------------------------
+  // LOAD A SOUND
+  // -----------------------------------------
+
+  loadSound(name, path, volume = 1) {
+
+    const audio = new Audio(path);
+
+    audio.preload = "auto";
+
+    audio.volume =
+      volume * this.soundVolume;
+
+
+    this.sounds[name] = audio;
+
+  },
+
+
+  // -----------------------------------------
+  // PLAY SOUND EFFECT
+  // -----------------------------------------
+
+  play(name) {
+
+    if (this.muted) return;
+
+    const sound =
+      this.sounds[name];
+
+    if (!sound) {
+
+      console.warn(
+        `Sound not loaded: ${name}`
+      );
+
+      return;
+
+    }
+
+
+    // Clone allows the same sound
+    // to play multiple times at once
+
+    const soundClone =
+      sound.cloneNode();
+
+
+    soundClone.volume =
+      sound.volume;
+
+
+    soundClone.play()
+      .catch(() => {
+
+        // Browsers may block audio
+        // before the player interacts.
+
+      });
+
+  },
+
+
+  // -----------------------------------------
+  // PLAY MUSIC
+  // -----------------------------------------
+
+  playMusic(path) {
+
+    if (this.muted) return;
+
+
+    this.stopMusic();
+
+
+    const music =
+      new Audio(path);
+
+
+    music.loop = true;
+
+    music.volume =
+      this.musicVolume;
+
+
+    music.play()
+      .catch(() => {
+
+        console.log(
+          "Music will begin after player interaction."
+        );
+
+      });
+
+
+    this.currentMusic =
+      music;
+
+  },
+
+
+  // -----------------------------------------
+  // STOP MUSIC
+  // -----------------------------------------
+
+  stopMusic() {
+
+    if (!this.currentMusic) return;
+
+
+    this.currentMusic.pause();
+
+    this.currentMusic.currentTime = 0;
+
+    this.currentMusic = null;
+
+  },
+
+
+  // -----------------------------------------
+  // SET MUSIC VOLUME
+  // -----------------------------------------
+
+  setMusicVolume(volume) {
+
+    this.musicVolume =
+      Math.max(
+        0,
+        Math.min(1, volume)
+      );
+
+
+    if (this.currentMusic) {
+
+      this.currentMusic.volume =
+        this.musicVolume;
+
+    }
+
+  },
+
+
+  // -----------------------------------------
+  // SET SOUND VOLUME
+  // -----------------------------------------
+
+  setSoundVolume(volume) {
+
+    this.soundVolume =
+      Math.max(
+        0,
+        Math.min(1, volume)
+      );
+
+
+    Object.values(this.sounds)
+      .forEach(sound => {
+
+        sound.volume =
+          this.soundVolume;
+
+      });
+
+  },
+
+
+  // -----------------------------------------
+  // TOGGLE MUTE
+  // -----------------------------------------
+
+  toggleMute() {
+
+    this.muted =
+      !this.muted;
+
+
+    if (
+      this.currentMusic
+    ) {
+
+      this.currentMusic.muted =
+        this.muted;
+
+    }
+
+
+    Object.values(this.sounds)
+      .forEach(sound => {
+
+        sound.muted =
+          this.muted;
+
+      });
+
+
+    return this.muted;
+
+  },
+
+
+  // -----------------------------------------
+  // DESTROY
+  // -----------------------------------------
+
+  destroy() {
+
+    this.stopMusic();
+
+    this.sounds = {};
+
   }
 
-  // Clone audio so multiple explosions or
-  // impacts can play at the same time.
-
-  const audio = original.cloneNode();
-
-  audio.volume =
-    options.volume ?? original.volume;
-
-  audio.playbackRate =
-    options.playbackRate ?? 1;
-
-  audio.currentTime = 0;
-
-  audio.play().catch(() => {
-    // Browsers may block audio before the
-    // player interacts with the page.
-  });
-
-  return audio;
-
-}
+};
 
 
 // =========================================
-// PLAY BACKGROUND MUSIC
+// DEFAULT SOUND FILES
 // =========================================
 
-export function playMusic(src, volume = 0.5) {
+export function loadDefaultSounds() {
 
-  stopMusic();
-
-  music = new Audio(src);
-
-  music.loop = true;
-  music.volume = volume;
-
-  music.play().catch(() => {
-    console.log(
-      "Music will begin after player interaction."
-    );
-  });
-
-}
+  AudioSystem.loadSound(
+    "click",
+    "assets/audio/click.mp3",
+    0.5
+  );
 
 
-// =========================================
-// STOP MUSIC
-// =========================================
-
-export function stopMusic() {
-
-  if (!music) return;
-
-  music.pause();
-  music.currentTime = 0;
-
-  music = null;
-
-}
+  AudioSystem.loadSound(
+    "explosion",
+    "assets/audio/explosion.mp3",
+    0.8
+  );
 
 
-// =========================================
-// SET MUSIC VOLUME
-// =========================================
+  AudioSystem.loadSound(
+    "laser",
+    "assets/audio/laser.mp3",
+    0.6
+  );
 
-export function setMusicVolume(volume) {
 
-  if (!music) return;
+  AudioSystem.loadSound(
+    "ice-laser",
+    "assets/audio/ice-laser.mp3",
+    0.6
+  );
 
-  music.volume = Math.max(
-    0,
-    Math.min(1, volume)
+
+  AudioSystem.loadSound(
+    "black-hole",
+    "assets/audio/black-hole.mp3",
+    0.7
+  );
+
+
+  AudioSystem.loadSound(
+    "wormhole",
+    "assets/audio/wormhole.mp3",
+    0.7
+  );
+
+
+  AudioSystem.loadSound(
+    "antimatter",
+    "assets/audio/antimatter.mp3",
+    0.9
   );
 
 }
 
 
 // =========================================
-// STOP ALL SOUNDS
+// EXPORT
 // =========================================
 
-export function stopAllSounds() {
-
-  sounds.forEach((sound) => {
-
-    sound.pause();
-    sound.currentTime = 0;
-
-  });
-
-}
-
-
-// =========================================
-// GAME AUDIO EVENTS
-// =========================================
-
-// These functions are ready to connect to
-// actual audio files later.
-
-export function playExplosionSound() {
-
-  playSound("explosion", {
-    volume: 0.8
-  });
-
-}
-
-
-export function playLaserSound() {
-
-  playSound("laser", {
-    volume: 0.5,
-    playbackRate: 1
-  });
-
-}
-
-
-export function playIceLaserSound() {
-
-  playSound("ice-laser", {
-    volume: 0.6,
-    playbackRate: 0.9
-  });
-
-}
-
-
-export function playMeteorSound() {
-
-  playSound("meteor", {
-    volume: 0.7
-  });
-
-}
-
-
-export function playBlackHoleSound() {
-
-  playSound("black-hole", {
-    volume: 0.6
-  });
-
-}
-
-
-export function playMysterySound() {
-
-  playSound("mystery", {
-    volume: 0.7,
-    playbackRate:
-      0.8 + Math.random() * 0.4
-  });
-
-}
-
-
-// =========================================
-// INITIALIZE AUDIO SETTINGS
-// =========================================
-
-export function setupAudioSettings() {
-
-  const musicSlider =
-    document.getElementById("musicVolume");
-
-  const soundSlider =
-    document.getElementById("soundVolume");
-
-
-  if (musicSlider) {
-
-    musicSlider.addEventListener(
-      "input",
-      () => {
-
-        const volume =
-          Number(musicSlider.value) / 100;
-
-        setMusicVolume(volume);
-
-      }
-    );
-
-  }
-
-
-  if (soundSlider) {
-
-    soundSlider.addEventListener(
-      "input",
-      () => {
-
-        const volume =
-          Number(soundSlider.value) / 100;
-
-        sounds.forEach((sound) => {
-          sound.volume = volume;
-        });
-
-      }
-    );
-
-  }
-
-}
-
-
-console.log("🔊 Universe Smash audio system ready.");
+export default AudioSystem;
