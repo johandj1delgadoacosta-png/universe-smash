@@ -1,390 +1,281 @@
-// =========================================
-// UNIVERSE SMASH
-// MAIN GAME CONTROLLER
-// =========================================
+import { runStartup } from "./startup.js";
+import { showMainMenu } from "./menu.js";
 
 import {
-  runStartup
-} from "./startup.js";
-
-import {
-  showMainMenu
-} from "./menu.js";
-
-import {
-  startPlanetMode,
-  stopPlanetMode,
-  updatePlanetMode,
-  drawPlanetMode,
-  usePlanetWeapon
+    startPlanetMode,
+    stopPlanetMode,
+    updatePlanetMode,
+    drawPlanetMode
 } from "./modes/planet-mode.js";
 
 import {
-  startSolarSystem,
-  stopSolarSystem,
-  updateSolarSystem,
-  drawSolarSystem,
-  handleSolarMouseDown,
-  handleSolarMouseMove,
-  handleSolarMouseUp
+    startSolarSystem,
+    stopSolarSystem,
+    updateSolarSystem,
+    drawSolarSystem,
+    resetSolarCamera
 } from "./modes/solar-system.js";
 
-import AudioSystem, {
-  loadDefaultSounds
-} from "./audio.js";
 
+const canvas = document.getElementById("game-canvas");
+const ctx = canvas.getContext("2d");
 
-// =========================================
-// GAME STATE
-// =========================================
+let currentMode = "menu";
 
-let currentMode = null;
+let paused = false;
 
-let canvas = null;
+let lastTime = performance.now();
 
-let lastTime = 0;
-
-
-// =========================================
-// INITIALIZE GAME
-// =========================================
-
-function initializeGame() {
-
-  canvas =
-    document.getElementById("game-canvas");
-
-
-  if (!canvas) {
-
-    console.error(
-      "Game canvas not found!"
-    );
-
-    return;
-
-  }
-
-
-  resizeCanvas();
-
-
-  window.addEventListener(
-    "resize",
-    resizeCanvas
-  );
-
-
-  // Audio
-
-  AudioSystem.init();
-
-  loadDefaultSounds();
-
-
-  // Mouse controls
-
-  canvas.addEventListener(
-    "mousedown",
-    handleMouseDown
-  );
-
-  canvas.addEventListener(
-    "mousemove",
-    handleMouseMove
-  );
-
-  window.addEventListener(
-    "mouseup",
-    handleMouseUp
-  );
-
-
-  // Disable right-click menu on canvas
-
-  canvas.addEventListener(
-    "contextmenu",
-    event => {
-
-      event.preventDefault();
-
-    }
-  );
-
-
-  // Start startup sequence
-
-  runStartup(
-    () => {
-
-      showMenu();
-
-    }
-  );
-
-
-  requestAnimationFrame(
-    gameLoop
-  );
-
-}
-
-
-// =========================================
-// RESIZE CANVAS
-// =========================================
 
 function resizeCanvas() {
 
-  if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
+
+resizeCanvas();
 
 
-  canvas.width =
-    window.innerWidth;
+export function showGameUI() {
 
-  canvas.height =
-    window.innerHeight;
-
+    document.getElementById("game-info").style.display =
+        "block";
 }
 
 
-// =========================================
-// SHOW MENU
-// =========================================
+export function hideGameUI() {
 
-function showMenu() {
-
-  stopCurrentMode();
+    document.getElementById("game-info").style.display =
+        "none";
+}
 
 
-  showMainMenu(
-    mode => {
+export function updateGameInfo(objectCount, zoom, mode) {
 
-      startMode(mode);
+    const count =
+        document.getElementById("object-count");
 
+    const zoomDisplay =
+        document.getElementById("zoom-display");
+
+    const modeDisplay =
+        document.getElementById("mode-display");
+
+    if (count) {
+        count.textContent =
+            `Objects: ${objectCount}`;
     }
-  );
 
+    if (zoomDisplay) {
+        zoomDisplay.textContent =
+            `Zoom: ${Math.round(zoom * 100)}%`;
+    }
+
+    if (modeDisplay) {
+        modeDisplay.textContent =
+            mode;
+    }
 }
 
 
-// =========================================
-// START MODE
-// =========================================
+export function openMainMenu() {
 
-function startMode(mode) {
+    currentMode = "menu";
 
-  stopCurrentMode();
-
-
-  currentMode = mode;
-
-
-  if (mode === "planet") {
-
-    startPlanetMode(
-      canvas
-    );
-
-  }
-
-
-  if (mode === "solar-system") {
-
-    startSolarSystem(
-      canvas
-    );
-
-  }
-
-}
-
-
-// =========================================
-// STOP CURRENT MODE
-// =========================================
-
-function stopCurrentMode() {
-
-  if (
-    currentMode === "planet"
-  ) {
+    paused = false;
 
     stopPlanetMode();
-
-  }
-
-
-  if (
-    currentMode === "solar-system"
-  ) {
-
     stopSolarSystem();
 
-  }
+    document.getElementById(
+        "main-menu"
+    ).style.display = "flex";
 
+    document.getElementById(
+        "sandbox-menu"
+    ).style.display = "none";
 
-  currentMode = null;
+    document.getElementById(
+        "planet-weapon-menu"
+    ).style.display = "none";
 
+    hideGameUI();
 }
 
 
-// =========================================
-// MOUSE DOWN
-// =========================================
+function startPlanet() {
 
-function handleMouseDown(event) {
+    currentMode = "planet";
 
-  if (!currentMode) return;
+    document.getElementById(
+        "main-menu"
+    ).style.display = "none";
 
+    document.getElementById(
+        "planet-weapon-menu"
+    ).style.display = "block";
 
-  if (
-    currentMode === "planet"
-  ) {
+    document.getElementById(
+        "sandbox-menu"
+    ).style.display = "none";
 
-    const rect =
-      canvas.getBoundingClientRect();
+    showGameUI();
 
-
-    const x =
-      event.clientX -
-      rect.left;
-
-
-    const y =
-      event.clientY -
-      rect.top;
-
-
-    usePlanetWeapon(
-      x,
-      y
+    startPlanetMode(
+        canvas,
+        ctx,
+        openMainMenu
     );
-
-  }
-
-
-  if (
-    currentMode === "solar-system"
-  ) {
-
-    handleSolarMouseDown(
-      event
-    );
-
-  }
-
 }
 
 
-// =========================================
-// MOUSE MOVE
-// =========================================
+function startSolar() {
 
-function handleMouseMove(event) {
+    currentMode = "solar";
 
-  if (
-    currentMode === "solar-system"
-  ) {
+    document.getElementById(
+        "main-menu"
+    ).style.display = "none";
 
-    handleSolarMouseMove(
-      event
+    document.getElementById(
+        "planet-weapon-menu"
+    ).style.display = "none";
+
+    document.getElementById(
+        "sandbox-menu"
+    ).style.display = "block";
+
+    showGameUI();
+
+    startSolarSystem(
+        canvas,
+        ctx,
+        openMainMenu
     );
-
-  }
-
 }
 
 
-// =========================================
-// MOUSE UP
-// =========================================
+function setupMenu() {
 
-function handleMouseUp() {
+    showMainMenu({
 
-  if (
-    currentMode === "solar-system"
-  ) {
+        onPlanetMode: startPlanet,
 
-    handleSolarMouseUp();
-
-  }
-
+        onSolarSystem: startSolar
+    });
 }
 
 
-// =========================================
-// GAME LOOP
-// =========================================
+window.addEventListener(
+    "keydown",
+    event => {
 
-function gameLoop(timestamp) {
+        if (event.key === "Escape") {
 
-  let deltaTime =
-    (timestamp - lastTime) /
-    16.666;
+            if (
+                currentMode === "planet" ||
+                currentMode === "solar"
+            ) {
 
+                openMainMenu();
+            }
+        }
 
-  // Prevent huge jumps after lag
+        if (event.key.toLowerCase() === "p") {
 
-  deltaTime =
-    Math.min(
-      deltaTime || 1,
-      3
-    );
+            if (
+                currentMode === "planet" ||
+                currentMode === "solar"
+            ) {
 
+                paused = !paused;
+            }
+        }
 
-  lastTime =
-    timestamp;
+        if (
+            currentMode === "solar" &&
+            event.key.toLowerCase() === "r"
+        ) {
 
-
-  // ---------------------------------------
-  // PLANET MODE
-  // ---------------------------------------
-
-  if (
-    currentMode === "planet"
-  ) {
-
-    updatePlanetMode(
-      deltaTime
-    );
-
-
-    drawPlanetMode();
-
-  }
-
-
-  // ---------------------------------------
-  // SOLAR SYSTEM MODE
-  // ---------------------------------------
-
-  if (
-    currentMode === "solar-system"
-  ) {
-
-    updateSolarSystem(
-      deltaTime
-    );
-
-
-    drawSolarSystem();
-
-  }
-
-
-  requestAnimationFrame(
-    gameLoop
-  );
-
-}
-
-
-// =========================================
-// START GAME
-// =========================================
-
-document.addEventListener(
-  "DOMContentLoaded",
-  initializeGame
+            resetSolarCamera();
+        }
+    }
 );
+
+
+function update(deltaTime) {
+
+    if (paused) {
+        return;
+    }
+
+    if (currentMode === "planet") {
+
+        updatePlanetMode(deltaTime);
+    }
+
+    if (currentMode === "solar") {
+
+        updateSolarSystem(deltaTime);
+    }
+}
+
+
+function draw() {
+
+    if (currentMode === "planet") {
+
+        drawPlanetMode();
+    }
+
+    else if (currentMode === "solar") {
+
+        drawSolarSystem();
+    }
+
+    else {
+
+        ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+    }
+}
+
+
+function gameLoop(time) {
+
+    const deltaTime =
+        Math.min(
+            (time - lastTime) / 16.6667,
+            3
+        );
+
+    lastTime = time;
+
+    update(deltaTime);
+
+    draw();
+
+    requestAnimationFrame(gameLoop);
+}
+
+
+async function startGame() {
+
+    await runStartup();
+
+    setupMenu();
+
+    requestAnimationFrame(gameLoop);
+}
+
+
+startGame();
