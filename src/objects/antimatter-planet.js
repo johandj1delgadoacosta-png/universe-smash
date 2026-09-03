@@ -1,408 +1,392 @@
-// src/objects/antimatter-planet.js
+// ============================================
+// UNIVERSE SMASH
+// Antimatter Planet Object
+// ============================================
 
-export function createAntimatterPlanet(
-    x = 0,
-    y = 0,
-    options = {}
-) {
+export function createAntimatterPlanet(x = 0, y = 0, options = {}) {
     return {
         type: "antimatter-planet",
-        name: options.name || "Antimatter Planet",
 
         x,
         y,
 
-        radius: options.radius || 28,
+        radius: options.radius ?? 32,
+        mass: options.mass ?? 8e14,
 
-        mass: options.mass || 100,
+        vx: options.vx ?? 0,
+        vy: options.vy ?? 0,
 
-        velocity: {
-            x: options.velocityX || 0,
-            y: options.velocityY || 0
-        },
+        rotation: options.rotation ?? 0,
+        rotationSpeed: options.rotationSpeed ?? 0.01,
 
-        rotation: options.rotation || 0,
-
-        rotationSpeed:
-            options.rotationSpeed || 0.01,
-
-        pulse:
-            Math.random() * Math.PI * 2,
-
-        glow: 1,
-
-        antimatterLevel:
-            options.antimatterLevel || 1,
+        color: options.color ?? "#d8ffff",
+        glow: options.glow ?? 1,
 
         destroyed: false,
 
-        static: options.static === true
+        antimatterLevel: options.antimatterLevel ?? 1,
+
+        age: 0,
+
+        reactionCooldown: 0,
+
+        atmosphere: options.atmosphere ?? true
     };
 }
 
-export function updateAntimatterPlanet(
-    planet,
-    deltaTime = 1
-) {
+
+// ============================================
+// UPDATE
+// ============================================
+
+export function updateAntimatterPlanet(planet, deltaTime = 1) {
     if (!planet || planet.destroyed) {
         return;
     }
 
-    planet.rotation =
-        (planet.rotation || 0) +
-        planet.rotationSpeed *
-        deltaTime;
+    planet.age += deltaTime;
 
-    planet.pulse +=
-        0.045 * deltaTime;
+    planet.x += planet.vx * deltaTime;
+    planet.y += planet.vy * deltaTime;
 
+    planet.rotation += planet.rotationSpeed * deltaTime;
+
+    if (planet.reactionCooldown > 0) {
+        planet.reactionCooldown -= deltaTime;
+
+        if (planet.reactionCooldown < 0) {
+            planet.reactionCooldown = 0;
+        }
+    }
+
+    // Slowly animate the glow.
     planet.glow =
         1 +
-        Math.sin(planet.pulse) *
-        0.15;
+        Math.sin(planet.age * 0.08) * 0.12;
 
-    if (
-        planet.antimatterLevel > 0
-    ) {
-        planet.antimatterLevel =
-            Math.max(
-                0,
-                planet.antimatterLevel -
-                0.00001 * deltaTime
-            );
+    if (planet.antimatterLevel < 0) {
+        planet.antimatterLevel = 0;
+    }
+
+    if (planet.antimatterLevel > 1) {
+        planet.antimatterLevel = 1;
     }
 }
+
+
+// ============================================
+// DRAW
+// ============================================
 
 export function drawAntimatterPlanet(
     ctx,
     planet,
     camera = null
 ) {
-    if (!ctx || !planet) {
+    if (!ctx || !planet || planet.destroyed) {
         return;
     }
 
-    let x = planet.x;
-    let y = planet.y;
-    let scale = 1;
+    let screenX = planet.x;
+    let screenY = planet.y;
+    let radius = planet.radius;
 
     if (camera) {
-        const screen =
-            camera.worldToScreen(
+        if (typeof camera.worldToScreen === "function") {
+            const position = camera.worldToScreen(
                 planet.x,
                 planet.y
             );
 
-        x = screen.x;
-        y = screen.y;
+            screenX = position.x;
+            screenY = position.y;
 
-        scale =
-            camera.zoom || 1;
+            radius *= camera.zoom ?? 1;
+        } else {
+            screenX =
+                (planet.x - camera.x) *
+                    (camera.zoom ?? 1) +
+                ctx.canvas.width / 2;
+
+            screenY =
+                (planet.y - camera.y) *
+                    (camera.zoom ?? 1) +
+                ctx.canvas.height / 2;
+
+            radius *= camera.zoom ?? 1;
+        }
     }
-
-    const radius =
-        Math.max(
-            3,
-            planet.radius * scale
-        );
-
-    drawAntimatterGlow(
-        ctx,
-        x,
-        y,
-        radius,
-        planet.glow
-    );
-
-    drawAntimatterAtmosphere(
-        ctx,
-        x,
-        y,
-        radius
-    );
-
-    drawPlanetSurface(
-        ctx,
-        x,
-        y,
-        radius
-    );
-
-    drawEnergyLines(
-        ctx,
-        x,
-        y,
-        radius,
-        planet.rotation
-    );
-}
-
-function drawAntimatterGlow(
-    ctx,
-    x,
-    y,
-    radius,
-    strength = 1
-) {
-    const glowRadius =
-        radius * 3;
-
-    const gradient =
-        ctx.createRadialGradient(
-            x,
-            y,
-            radius * 0.2,
-            x,
-            y,
-            glowRadius
-        );
-
-    gradient.addColorStop(
-        0,
-        `rgba(255,70,255,${0.32 * strength})`
-    );
-
-    gradient.addColorStop(
-        0.35,
-        `rgba(130,50,255,${0.20 * strength})`
-    );
-
-    gradient.addColorStop(
-        0.7,
-        `rgba(50,180,255,${0.08 * strength})`
-    );
-
-    gradient.addColorStop(
-        1,
-        "rgba(0,0,0,0)"
-    );
 
     ctx.save();
 
-    ctx.fillStyle =
-        gradient;
+    // ----------------------------------------
+    // Outer glow
+    // ----------------------------------------
+
+    const glowRadius =
+        radius *
+        (1.8 + planet.glow * 0.35);
+
+    const glow = ctx.createRadialGradient(
+        screenX,
+        screenY,
+        radius * 0.2,
+        screenX,
+        screenY,
+        glowRadius
+    );
+
+    glow.addColorStop(
+        0,
+        "rgba(220,255,255,0.45)"
+    );
+
+    glow.addColorStop(
+        0.45,
+        "rgba(150,240,255,0.18)"
+    );
+
+    glow.addColorStop(
+        1,
+        "rgba(80,180,255,0)"
+    );
+
+    ctx.fillStyle = glow;
 
     ctx.beginPath();
-
     ctx.arc(
-        x,
-        y,
+        screenX,
+        screenY,
         glowRadius,
         0,
         Math.PI * 2
     );
-
     ctx.fill();
 
-    ctx.restore();
-}
+    // ----------------------------------------
+    // Planet body
+    // ----------------------------------------
 
-function drawAntimatterAtmosphere(
-    ctx,
-    x,
-    y,
-    radius
-) {
-    ctx.save();
-
-    ctx.globalAlpha = 0.6;
-
-    ctx.strokeStyle =
-        "#d45cff";
-
-    ctx.lineWidth =
-        Math.max(
-            1,
-            radius * 0.08
-        );
-
-    ctx.beginPath();
-
-    ctx.arc(
-        x,
-        y,
-        radius * 1.12,
-        0,
-        Math.PI * 2
+    const planetGradient = ctx.createRadialGradient(
+        screenX - radius * 0.35,
+        screenY - radius * 0.35,
+        radius * 0.1,
+        screenX,
+        screenY,
+        radius
     );
 
-    ctx.stroke();
-
-    ctx.strokeStyle =
-        "#61d9ff";
-
-    ctx.lineWidth =
-        Math.max(
-            1,
-            radius * 0.035
-        );
-
-    ctx.beginPath();
-
-    ctx.arc(
-        x,
-        y,
-        radius * 1.22,
+    planetGradient.addColorStop(
         0,
-        Math.PI * 2
+        "#ffffff"
     );
 
-    ctx.stroke();
-
-    ctx.restore();
-}
-
-function drawPlanetSurface(
-    ctx,
-    x,
-    y,
-    radius
-) {
-    const gradient =
-        ctx.createRadialGradient(
-            x - radius * 0.3,
-            y - radius * 0.3,
-            radius * 0.05,
-            x,
-            y,
-            radius
-        );
-
-    gradient.addColorStop(
-        0,
-        "#f0c8ff"
-    );
-
-    gradient.addColorStop(
+    planetGradient.addColorStop(
         0.35,
-        "#a34de8"
+        planet.color
     );
 
-    gradient.addColorStop(
-        0.7,
-        "#5420a5"
+    planetGradient.addColorStop(
+        0.75,
+        "#8bdcff"
     );
 
-    gradient.addColorStop(
+    planetGradient.addColorStop(
         1,
-        "#16052f"
+        "#397ba8"
     );
 
-    ctx.save();
-
-    ctx.fillStyle =
-        gradient;
+    ctx.fillStyle = planetGradient;
 
     ctx.beginPath();
-
     ctx.arc(
-        x,
-        y,
+        screenX,
+        screenY,
         radius,
         0,
         Math.PI * 2
     );
-
     ctx.fill();
 
-    ctx.restore();
-}
+    // ----------------------------------------
+    // Antimatter surface rings
+    // ----------------------------------------
 
-function drawEnergyLines(
-    ctx,
-    x,
-    y,
-    radius,
-    rotation
-) {
     ctx.save();
 
-    ctx.translate(x, y);
-    ctx.rotate(rotation);
+    ctx.translate(
+        screenX,
+        screenY
+    );
 
-    for (let i = 0; i < 8; i++) {
-        const angle =
-            (Math.PI * 2 / 8) *
-            i;
+    ctx.rotate(
+        planet.rotation
+    );
 
-        const inner =
-            radius * 0.8;
+    ctx.strokeStyle =
+        "rgba(255,255,255,0.5)";
 
-        const outer =
-            radius * 1.35;
+    ctx.lineWidth =
+        Math.max(1, radius * 0.035);
 
-        ctx.globalAlpha =
-            0.25 +
-            (i % 2) * 0.15;
-
-        ctx.strokeStyle =
-            i % 2 === 0
-                ? "#ff5cff"
-                : "#62dfff";
-
-        ctx.lineWidth =
-            Math.max(
-                1,
-                radius * 0.025
-            );
+    for (let i = 0; i < 3; i++) {
+        const ringRadius =
+            radius *
+            (0.35 + i * 0.2);
 
         ctx.beginPath();
 
-        ctx.moveTo(
-            Math.cos(angle) * inner,
-            Math.sin(angle) * inner
-        );
-
-        ctx.lineTo(
-            Math.cos(angle) * outer,
-            Math.sin(angle) * outer
+        ctx.ellipse(
+            0,
+            0,
+            ringRadius,
+            ringRadius * 0.25,
+            0,
+            0,
+            Math.PI * 2
         );
 
         ctx.stroke();
     }
 
     ctx.restore();
+
+    // ----------------------------------------
+    // Atmosphere
+    // ----------------------------------------
+
+    if (planet.atmosphere) {
+        ctx.strokeStyle =
+            "rgba(190,250,255,0.75)";
+
+        ctx.lineWidth =
+            Math.max(
+                1,
+                radius * 0.04
+            );
+
+        ctx.beginPath();
+
+        ctx.arc(
+            screenX,
+            screenY,
+            radius * 1.08,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.stroke();
+    }
+
+    // ----------------------------------------
+    // Antimatter symbol
+    // ----------------------------------------
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,0.85)";
+
+    ctx.lineWidth =
+        Math.max(
+            1,
+            radius * 0.055
+        );
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        screenX - radius * 0.3,
+        screenY
+    );
+
+    ctx.lineTo(
+        screenX + radius * 0.3,
+        screenY
+    );
+
+    ctx.stroke();
+
+    // ----------------------------------------
+    // Highlight
+    // ----------------------------------------
+
+    ctx.fillStyle =
+        "rgba(255,255,255,0.7)";
+
+    ctx.beginPath();
+
+    ctx.arc(
+        screenX - radius * 0.35,
+        screenY - radius * 0.35,
+        radius * 0.12,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    ctx.restore();
 }
 
-export function isAntimatterPlanet(
-    object
-) {
+
+// ============================================
+// CHECK TYPE
+// ============================================
+
+export function isAntimatterPlanet(object) {
     return (
         object &&
-        object.type ===
-            "antimatter-planet"
+        object.type === "antimatter-planet"
     );
 }
 
+
+// ============================================
+// TRIGGER ANTIMATTER REACTION
+// ============================================
+
 export function triggerAntimatterReaction(
-    planet
+    planet,
+    strength = 1
 ) {
-    if (
-        !planet ||
-        planet.destroyed
-    ) {
+    if (!planet || planet.destroyed) {
         return false;
     }
 
-    planet.antimatterLevel = 0;
+    if (planet.reactionCooldown > 0) {
+        return false;
+    }
 
-    planet.destroyed = true;
+    const reactionStrength =
+        Math.max(
+            0,
+            Math.min(
+                1,
+                strength
+            )
+        );
+
+    planet.antimatterLevel -=
+        reactionStrength * 0.2;
+
+    planet.reactionCooldown = 30;
+
+    if (planet.antimatterLevel <= 0) {
+        planet.antimatterLevel = 0;
+        planet.destroyed = true;
+    }
 
     return true;
 }
 
-export function getAntimatterLevel(
-    planet
-) {
-    if (
-        !planet ||
-        !Number.isFinite(
-            planet.antimatterLevel
-        )
-    ) {
+
+// ============================================
+// GET ANTIMATTER LEVEL
+// ============================================
+
+export function getAntimatterLevel(planet) {
+    if (!planet) {
         return 0;
     }
 
-    return planet.antimatterLevel;
+    return planet.antimatterLevel ?? 0;
 }
-
