@@ -3,144 +3,370 @@
 // PHYSICS ENGINE
 // =========================================
 
-// Simplified game physics.
-// Values are intentionally scaled for a fun,
-// visible space simulation rather than real-world units.
+
+// -----------------------------------------
+// CONFIGURATION
+// -----------------------------------------
 
 export const PHYSICS = {
-  gravityConstant: 0.04,
-  minimumDistance: 0.5,
-  collisionMultiplier: 0.9
+
+  // Simplified fictional gravity constant
+  gravity: 0.08,
+
+  // Prevent extremely close objects
+  // from creating huge forces
+  minimumDistance: 25,
+
+  // Maximum speed for normal objects
+  maxSpeed: 25,
+
+  // Collision response
+  bounce: 0.35
+
 };
 
 
-// =========================================
-// CREATE PHYSICS DATA
-// =========================================
+// -----------------------------------------
+// APPLY GRAVITY
+// -----------------------------------------
 
-export function createPhysicsBody(options = {}) {
-  return {
-    mass: options.mass ?? 1,
+export function applyGravity(
+  objectA,
+  objectB,
+  deltaTime = 1
+) {
 
-    position: {
-      x: options.x ?? 0,
-      y: options.y ?? 0,
-      z: options.z ?? 0
-    },
-
-    velocity: {
-      x: options.vx ?? 0,
-      y: options.vy ?? 0,
-      z: options.vz ?? 0
-    },
-
-    radius: options.radius ?? 1,
-
-    fixed: options.fixed ?? false,
-
-    destroyed: false
-  };
-}
+  if (
+    !objectA ||
+    !objectB ||
+    objectA.destroyed ||
+    objectB.destroyed
+  ) {
+    return;
+  }
 
 
-// =========================================
-// DISTANCE BETWEEN TWO OBJECTS
-// =========================================
+  const dx =
+    objectB.position.x -
+    objectA.position.x;
 
-export function getDistance(a, b) {
-  const dx = b.position.x - a.position.x;
-  const dy = b.position.y - a.position.y;
-  const dz = b.position.z - a.position.z;
+  const dy =
+    objectB.position.y -
+    objectA.position.y;
 
-  return Math.sqrt(
+
+  const distanceSquared =
     dx * dx +
-    dy * dy +
-    dz * dz
-  );
-}
+    dy * dy;
 
 
-// =========================================
-// GRAVITY
-// =========================================
+  const safeDistance =
+    Math.max(
+      Math.sqrt(distanceSquared),
+      PHYSICS.minimumDistance
+    );
 
-export function applyGravity(a, b, deltaTime = 1) {
 
-  if (a.destroyed || b.destroyed) return;
+  const directionX =
+    dx / safeDistance;
 
-  const dx = b.position.x - a.position.x;
-  const dy = b.position.y - a.position.y;
-  const dz = b.position.z - a.position.z;
+  const directionY =
+    dy / safeDistance;
 
-  let distanceSquared =
-    dx * dx + dy * dy + dz * dz;
 
-  distanceSquared = Math.max(
-    distanceSquared,
-    PHYSICS.minimumDistance
-  );
-
-  const distance = Math.sqrt(distanceSquared);
+  // Simplified gravity calculation
 
   const force =
-    (PHYSICS.gravityConstant *
-      a.mass *
-      b.mass) /
-    distanceSquared;
+    (
+      PHYSICS.gravity *
+      objectA.mass *
+      objectB.mass
+    ) /
+    (
+      safeDistance *
+      safeDistance
+    );
 
-  const nx = dx / distance;
-  const ny = dy / distance;
-  const nz = dz / distance;
+
+  const accelerationA =
+    force /
+    Math.max(objectA.mass, 1);
+
+  const accelerationB =
+    force /
+    Math.max(objectB.mass, 1);
 
 
-  // Accelerate object A toward B
+  // Make sure velocity objects exist
 
-  if (!a.fixed) {
+  if (!objectA.velocity) {
 
-    const accelerationA =
-      force / Math.max(a.mass, 0.01);
+    objectA.velocity = {
+      x: 0,
+      y: 0
+    };
 
-    a.velocity.x +=
-      nx * accelerationA * deltaTime;
-
-    a.velocity.y +=
-      ny * accelerationA * deltaTime;
-
-    a.velocity.z +=
-      nz * accelerationA * deltaTime;
   }
 
 
-  // Accelerate object B toward A
+  if (!objectB.velocity) {
 
-  if (!b.fixed) {
+    objectB.velocity = {
+      x: 0,
+      y: 0
+    };
 
-    const accelerationB =
-      force / Math.max(b.mass, 0.01);
+  }
 
-    b.velocity.x -=
-      nx * accelerationB * deltaTime;
 
-    b.velocity.y -=
-      ny * accelerationB * deltaTime;
+  // Pull objects toward each other
 
-    b.velocity.z -=
-      nz * accelerationB * deltaTime;
+  if (!objectA.fixed) {
+
+    objectA.velocity.x +=
+      directionX *
+      accelerationA *
+      deltaTime;
+
+    objectA.velocity.y +=
+      directionY *
+      accelerationA *
+      deltaTime;
+
+  }
+
+
+  if (!objectB.fixed) {
+
+    objectB.velocity.x -=
+      directionX *
+      accelerationB *
+      deltaTime;
+
+    objectB.velocity.y -=
+      directionY *
+      accelerationB *
+      deltaTime;
+
   }
 
 }
 
 
-// =========================================
-// APPLY GRAVITY TO ALL OBJECTS
-// =========================================
+// -----------------------------------------
+// LIMIT SPEED
+// -----------------------------------------
 
-export function applyAllGravity(
+export function limitSpeed(
+  object
+) {
+
+  if (
+    !object ||
+    !object.velocity
+  ) {
+    return;
+  }
+
+
+  const speed =
+    Math.sqrt(
+
+      object.velocity.x *
+      object.velocity.x +
+
+      object.velocity.y *
+      object.velocity.y
+
+    );
+
+
+  if (
+    speed >
+    PHYSICS.maxSpeed
+  ) {
+
+    const multiplier =
+      PHYSICS.maxSpeed /
+      speed;
+
+
+    object.velocity.x *=
+      multiplier;
+
+    object.velocity.y *=
+      multiplier;
+
+  }
+
+}
+
+
+// -----------------------------------------
+// UPDATE POSITION
+// -----------------------------------------
+
+export function updatePosition(
+  object,
+  deltaTime = 1
+) {
+
+  if (
+    !object ||
+    object.destroyed ||
+    object.fixed
+  ) {
+    return;
+  }
+
+
+  if (!object.velocity) return;
+
+
+  object.position.x +=
+    object.velocity.x *
+    deltaTime;
+
+  object.position.y +=
+    object.velocity.y *
+    deltaTime;
+
+
+  limitSpeed(object);
+
+}
+
+
+// -----------------------------------------
+// CHECK COLLISION
+// -----------------------------------------
+
+export function checkCollision(
+  objectA,
+  objectB
+) {
+
+  if (
+    !objectA ||
+    !objectB ||
+    objectA.destroyed ||
+    objectB.destroyed
+  ) {
+    return false;
+  }
+
+
+  const dx =
+    objectB.position.x -
+    objectA.position.x;
+
+  const dy =
+    objectB.position.y -
+    objectA.position.y;
+
+
+  const distance =
+    Math.sqrt(
+      dx * dx +
+      dy * dy
+    );
+
+
+  const minimumDistance =
+    (objectA.radius ?? 10) +
+    (objectB.radius ?? 10);
+
+
+  return (
+    distance <=
+    minimumDistance
+  );
+
+}
+
+
+// -----------------------------------------
+// COLLISION RESPONSE
+// -----------------------------------------
+
+export function resolveCollision(
+  objectA,
+  objectB
+) {
+
+  if (
+    !checkCollision(
+      objectA,
+      objectB
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    objectA.fixed &&
+    objectB.fixed
+  ) {
+    return true;
+  }
+
+
+  // Swap a portion of velocity
+  // for a simple arcade-style bounce
+
+  const tempX =
+    objectA.velocity.x;
+
+  const tempY =
+    objectA.velocity.y;
+
+
+  if (!objectA.fixed) {
+
+    objectA.velocity.x =
+      objectB.velocity.x *
+      PHYSICS.bounce;
+
+    objectA.velocity.y =
+      objectB.velocity.y *
+      PHYSICS.bounce;
+
+  }
+
+
+  if (!objectB.fixed) {
+
+    objectB.velocity.x =
+      tempX *
+      PHYSICS.bounce;
+
+    objectB.velocity.y =
+      tempY *
+      PHYSICS.bounce;
+
+  }
+
+
+  return true;
+
+}
+
+
+// -----------------------------------------
+// UPDATE ALL GRAVITY
+// -----------------------------------------
+
+export function updateGravity(
   objects,
   deltaTime = 1
 ) {
 
-  for (let i = 0; i < objects.length; i++) {
+  for (
+    let i = 0;
+    i < objects.length;
+    i++
+  ) {
 
     for (
       let j = i + 1;
@@ -161,90 +387,47 @@ export function applyAllGravity(
 }
 
 
-// =========================================
-// UPDATE POSITION
-// =========================================
-
-export function updatePosition(
-  body,
-  deltaTime = 1
-) {
-
-  if (body.fixed || body.destroyed) return;
-
-  body.position.x +=
-    body.velocity.x * deltaTime;
-
-  body.position.y +=
-    body.velocity.y * deltaTime;
-
-  body.position.z +=
-    body.velocity.z * deltaTime;
-
-}
-
-
-// =========================================
-// UPDATE ALL OBJECTS
-// =========================================
+// -----------------------------------------
+// UPDATE PHYSICS WORLD
+// -----------------------------------------
 
 export function updatePhysics(
   objects,
   deltaTime = 1
 ) {
 
-  // Apply gravity between everything
+  if (!objects) return;
 
-  applyAllGravity(
+
+  // Apply gravity first
+
+  updateGravity(
     objects,
     deltaTime
   );
 
-  // Move everything
 
-  objects.forEach((object) => {
+  // Update movement
 
-    updatePosition(
-      object,
-      deltaTime
-    );
+  objects.forEach(
+    object => {
 
-  });
+      updatePosition(
+        object,
+        deltaTime
+      );
 
-}
-
-
-// =========================================
-// COLLISION DETECTION
-// =========================================
-
-export function areColliding(a, b) {
-
-  if (a.destroyed || b.destroyed) {
-    return false;
-  }
-
-  const distance =
-    getDistance(a, b);
-
-  const collisionDistance =
-    (a.radius + b.radius) *
-    PHYSICS.collisionMultiplier;
-
-  return distance <= collisionDistance;
-
-}
+    }
+  );
 
 
-// =========================================
-// FIND COLLISIONS
-// =========================================
+  // Check collisions
 
-export function findCollisions(objects) {
-
-  const collisions = [];
-
-  for (let i = 0; i < objects.length; i++) {
+  for (
+    let i = 0;
+    i < objects.length;
+    i++
+  ) {
 
     for (
       let j = i + 1;
@@ -252,141 +435,13 @@ export function findCollisions(objects) {
       j++
     ) {
 
-      if (
-        areColliding(
-          objects[i],
-          objects[j]
-        )
-      ) {
-
-        collisions.push({
-          a: objects[i],
-          b: objects[j]
-        });
-
-      }
+      resolveCollision(
+        objects[i],
+        objects[j]
+      );
 
     }
 
   }
-
-  return collisions;
-
-}
-
-
-// =========================================
-// CREATE ORBIT VELOCITY
-// =========================================
-
-// Gives an object an approximate sideways velocity
-// so it can orbit around a central body.
-
-export function setOrbitVelocity(
-  object,
-  center,
-  direction = 1
-) {
-
-  const dx =
-    object.position.x -
-    center.position.x;
-
-  const dz =
-    object.position.z -
-    center.position.z;
-
-  const distance = Math.sqrt(
-    dx * dx + dz * dz
-  );
-
-  if (distance <= 0.01) return;
-
-  // Simplified orbital speed
-
-  const speed = Math.sqrt(
-    (PHYSICS.gravityConstant *
-      center.mass) /
-    distance
-  );
-
-  // Perpendicular direction
-
-  const nx = -dz / distance;
-  const nz = dx / distance;
-
-  object.velocity.x =
-    nx * speed * direction;
-
-  object.velocity.z =
-    nz * speed * direction;
-
-}
-
-
-// =========================================
-// BLACK HOLE ABSORPTION CHECK
-// =========================================
-
-export function canAbsorb(
-  blackHole,
-  object
-) {
-
-  if (
-    blackHole.destroyed ||
-    object.destroyed
-  ) {
-    return false;
-  }
-
-  const distance =
-    getDistance(
-      blackHole,
-      object
-    );
-
-  const absorbDistance =
-    blackHole.radius * 1.2;
-
-  return distance < absorbDistance;
-
-}
-
-
-// =========================================
-// ABSORB OBJECT
-// =========================================
-
-export function absorbObject(
-  blackHole,
-  object
-) {
-
-  if (
-    !canAbsorb(
-      blackHole,
-      object
-    )
-  ) {
-    return false;
-  }
-
-  object.destroyed = true;
-
-  // Black hole grows based on absorbed mass
-
-  blackHole.mass += object.mass;
-
-  blackHole.radius +=
-    Math.cbrt(
-      Math.max(object.mass, 0.01)
-    ) * 0.08;
-
-  console.log(
-    `🕳️ Black hole absorbed ${object.name || "object"}`
-  );
-
-  return true;
 
 }
