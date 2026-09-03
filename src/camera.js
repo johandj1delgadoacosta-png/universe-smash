@@ -1,237 +1,213 @@
 // =========================================
 // UNIVERSE SMASH
-// CAMERA CONTROLLER
+// CAMERA SYSTEM
 // =========================================
 
-let camera = null;
-let controls = null;
+export const Camera = {
+
+  x: 0,
+  y: 0,
+
+  zoom: 1,
+
+  minZoom: 0.1,
+  maxZoom: 5,
+
+
+  // -----------------------------------------
+  // RESET CAMERA
+  // -----------------------------------------
+
+  reset() {
+
+    this.x = 0;
+    this.y = 0;
+    this.zoom = 1;
+
+  },
+
+
+  // -----------------------------------------
+  // SET ZOOM
+  // -----------------------------------------
+
+  setZoom(value) {
+
+    this.zoom = Math.max(
+      this.minZoom,
+      Math.min(
+        this.maxZoom,
+        value
+      )
+    );
+
+  },
+
+
+  // -----------------------------------------
+  // ZOOM IN
+  // -----------------------------------------
+
+  zoomIn(amount = 0.1) {
+
+    this.setZoom(
+      this.zoom + amount
+    );
+
+  },
+
+
+  // -----------------------------------------
+  // ZOOM OUT
+  // -----------------------------------------
+
+  zoomOut(amount = 0.1) {
+
+    this.setZoom(
+      this.zoom - amount
+    );
+
+  },
+
+
+  // -----------------------------------------
+  // MOVE CAMERA
+  // -----------------------------------------
+
+  move(dx, dy) {
+
+    this.x += dx;
+    this.y += dy;
+
+  },
+
+
+  // -----------------------------------------
+  // CONVERT WORLD → SCREEN
+  // -----------------------------------------
+
+  worldToScreen(
+    worldX,
+    worldY,
+    canvas
+  ) {
+
+    return {
+
+      x:
+        (worldX - this.x) *
+        this.zoom +
+        canvas.width / 2,
+
+      y:
+        (worldY - this.y) *
+        this.zoom +
+        canvas.height / 2
+
+    };
+
+  },
+
+
+  // -----------------------------------------
+  // CONVERT SCREEN → WORLD
+  // -----------------------------------------
+
+  screenToWorld(
+    screenX,
+    screenY,
+    canvas
+  ) {
+
+    return {
+
+      x:
+        (
+          screenX -
+          canvas.width / 2
+        ) /
+        this.zoom +
+        this.x,
+
+      y:
+        (
+          screenY -
+          canvas.height / 2
+        ) /
+        this.zoom +
+        this.y
+
+    };
+
+  },
+
+
+  // -----------------------------------------
+  // FOLLOW OBJECT
+  // -----------------------------------------
+
+  follow(object, amount = 0.08) {
+
+    if (!object) return;
+
+
+    this.x +=
+      (
+        object.position.x -
+        this.x
+      ) *
+      amount;
+
+
+    this.y +=
+      (
+        object.position.y -
+        this.y
+      ) *
+      amount;
+
+  }
+
+};
 
 
 // =========================================
-// SET CAMERA
+// MOUSE WHEEL ZOOM
 // =========================================
 
-export function setupCamera(
-  threeCamera,
-  orbitControls = null
+export function enableCameraZoom(
+  canvas
 ) {
 
-  camera = threeCamera;
-  controls = orbitControls;
+  canvas.addEventListener(
+    "wheel",
+    event => {
 
-  console.log("📷 Camera system ready.");
-
-}
-
-
-// =========================================
-// ZOOM IN
-// =========================================
-
-export function zoomIn(amount = 0.85) {
-
-  if (!camera) return;
-
-  camera.position.multiplyScalar(amount);
-
-  if (controls) {
-    controls.update();
-  }
-
-}
+      event.preventDefault();
 
 
-// =========================================
-// ZOOM OUT
-// =========================================
-
-export function zoomOut(amount = 1.18) {
-
-  if (!camera) return;
-
-  camera.position.multiplyScalar(amount);
-
-  if (controls) {
-    controls.update();
-  }
-
-}
+      const zoomAmount =
+        event.deltaY > 0
+          ? -0.1
+          : 0.1;
 
 
-// =========================================
-// FOCUS ON AN OBJECT
-// =========================================
+      Camera.setZoom(
+        Camera.zoom +
+        zoomAmount
+      );
 
-export function focusObject(object) {
-
-  if (!camera || !object) return;
-
-  const target =
-    object.mesh || object;
-
-  if (!target.position) return;
-
-  const radius =
-    object.radius || 1;
-
-  // Position the camera near the object
-
-  camera.position.set(
-    target.position.x + radius * 5,
-    target.position.y + radius * 3,
-    target.position.z + radius * 5
+    },
+    {
+      passive: false
+    }
   );
 
-
-  // Point camera toward object
-
-  camera.lookAt(
-    target.position.x,
-    target.position.y,
-    target.position.z
-  );
-
-
-  // Update OrbitControls target if available
-
-  if (controls) {
-
-    controls.target.copy(
-      target.position
-    );
-
-    controls.update();
-
-  }
-
 }
 
 
 // =========================================
-// SYSTEM VIEW
+// EXPORT
 // =========================================
 
-export function systemView() {
-
-  if (!camera) return;
-
-  // Large overview position
-
-  camera.position.set(
-    0,
-    45,
-    70
-  );
-
-  camera.lookAt(
-    0,
-    0,
-    0
-  );
-
-
-  if (controls) {
-
-    controls.target.set(
-      0,
-      0,
-      0
-    );
-
-    controls.update();
-
-  }
-
-}
-
-
-// =========================================
-// CAMERA BUTTONS
-// =========================================
-
-export function setupCameraButtons() {
-
-  const zoomInButton =
-    document.getElementById("zoomInButton");
-
-  const zoomOutButton =
-    document.getElementById("zoomOutButton");
-
-  const systemViewButton =
-    document.getElementById("systemViewButton");
-
-
-  if (zoomInButton) {
-
-    zoomInButton.addEventListener(
-      "click",
-      () => {
-
-        zoomIn();
-
-      }
-    );
-
-  }
-
-
-  if (zoomOutButton) {
-
-    zoomOutButton.addEventListener(
-      "click",
-      () => {
-
-        zoomOut();
-
-      }
-    );
-
-  }
-
-
-  if (systemViewButton) {
-
-    systemViewButton.addEventListener(
-      "click",
-      () => {
-
-        systemView();
-
-      }
-    );
-
-  }
-
-}
-
-
-// =========================================
-// RESIZE CAMERA
-// =========================================
-
-export function resizeCamera(
-  width,
-  height
-) {
-
-  if (!camera) return;
-
-  camera.aspect =
-    width / height;
-
-  camera.updateProjectionMatrix();
-
-}
-
-
-// =========================================
-// UPDATE CAMERA
-// =========================================
-
-export function updateCamera() {
-
-  if (controls) {
-    controls.update();
-  }
-
-}
+export default Camera;
