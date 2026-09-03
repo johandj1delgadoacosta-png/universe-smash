@@ -1,916 +1,353 @@
-// ============================================================
-// UNIVERSE SMASH - PHYSICS ENGINE
-// Safe, fault-tolerant orbital physics
-// ============================================================
+// Universe Smash - Physics Engine
+// Stable orbital physics, gravity, collisions, black holes,
+// grey holes, and safe finite-value handling.
 
-const G = 0.00008;
-const MAX_ACCELERATION = 5000;
-const MAX_SPEED = 50000;
+const G = 0.0008;
+const MIN_DISTANCE = 8;
+const MAX_ACCELERATION = 2.5;
+const MAX_SPEED = 25;
 
 const collisionCooldowns = new Map();
 
-
-// ============================================================
-// SAFE NUMBER
-// ============================================================
-
 function finite(value, fallback = 0) {
+    return Number.isFinite(value) ? value : fallback;
+}
+
+function safeNumber(value, fallback = 0) {
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
 }
 
+function distanceBetween(a, b) {
+    if (!a || !b) return Infinity;
 
-// ============================================================
-// SAFE BODY
-// ============================================================
+    const ax = finite(a.x);
+    const ay = finite(a.y);
+    const bx = finite(b.x);
+    const by = finite(b.y);
 
-function validBody(body) {
-    return !!body && typeof body === "object";
+    return Math.hypot(bx - ax, by - ay);
 }
 
+function getBodyRadius(body) {
+    if (!body) return 1;
 
-// ============================================================
-// MASS
-// ============================================================
+    const radius = safeNumber(
+        body.radius ??
+        body.size ??
+        body.collisionRadius,
+        1
+    );
 
-export function getBodyMass(body) {
+    return Math.max(0.1, radius);
+}
 
-    if (!validBody(body)) {
-        return 0;
-    }
+function getBodyMass(body) {
+    if (!body) return 1;
 
-    if (body.static === true) {
-        return Math.max(
-            1,
-            finite(body.mass, 1)
-        );
-    }
-
-    let mass = finite(body.mass, 1);
-
-    if (mass <= 0) {
-        mass = 1;
+    if (Number.isFinite(body.mass)) {
+        return Math.max(0.0001, body.mass);
     }
 
     switch (body.type) {
-
         case "star":
-            mass = Math.max(mass, 100000);
-            break;
+            return 100000;
 
         case "blueHypergiant":
         case "blue-hypergiant":
-            mass = Math.max(mass, 500000);
-            break;
+            return 500000;
 
         case "contact-binary":
-            mass = Math.max(mass, 300000);
-            break;
+            return 700000;
 
         case "black-hole":
-            mass = Math.max(mass, 1000000);
-            break;
+            return 1000000;
 
         case "grey-hole":
-            mass = Math.max(mass, 500000);
-            break;
+            return 600000;
 
         case "planet":
-            mass = Math.max(mass, 1000);
-            break;
+            return 100;
 
         case "moon":
-            mass = Math.max(mass, 100);
-            break;
+            return 10;
 
         case "asteroid":
-            mass = Math.max(mass, 10);
-            break;
+            return 2;
 
         case "antimatter-planet":
-            mass = Math.max(mass, 1500);
-            break;
+            return 120;
+
+        case "wormhole":
+            return 500000;
 
         default:
-            break;
+            return 1;
     }
-
-    return mass;
 }
 
+function isBodyStatic(body) {
+    if (!body) return true;
 
-// ============================================================
-// RADIUS
-// ============================================================
-
-export function getBodyRadius(body) {
-
-    if (!validBody(body)) {
-        return 0;
-    }
-
-    let radius = finite(
-        body.radius,
-        10
-    );
-
-    if (radius <= 0) {
-        radius = 10;
-    }
-
-    return Math.min(
-        radius,
-        100000
+    return (
+        body.static === true ||
+        body.isStatic === true ||
+        body.type === "black-hole"
     );
 }
 
+function initializeBody(body) {
+    if (!body) return;
 
-// ============================================================
-// STATIC CHECK
-// ============================================================
+    body.x = finite(body.x);
+    body.y = finite(body.y);
 
-export function isBodyStatic(body) {
+    body.vx = finite(body.vx);
+    body.vy = finite(body.vy);
 
-    if (!validBody(body)) {
-        return true;
+    body.mass = Math.max(0.0001, getBodyMass(body));
+
+    if (!Number.isFinite(body.radius)) {
+        body.radius = 10;
     }
 
-    return body.static === true ||
-           body.type === "black-hole";
+    if (!Number.isFinite(body.vx)) body.vx = 0;
+    if (!Number.isFinite(body.vy)) body.vy = 0;
 }
-
-
-// ============================================================
-// DISTANCE
-// ============================================================
-
-export function distanceBetween(a, b) {
-
-    if (!validBody(a) || !validBody(b)) {
-        return Infinity;
-    }
-
-    const ax = finite(a.x, 0);
-    const ay = finite(a.y, 0);
-    const bx = finite(b.x, 0);
-    const by = finite(b.y, 0);
-
-    const dx = bx - ax;
-    const dy = by - ay;
-
-    return Math.sqrt(
-        dx * dx +
-        dy * dy
-    );
-}
-
-
-// ============================================================
-// ORBITAL VELOCITY
-// ============================================================
-
-export function addOrbitalVelocity(
-    body,
-    center,
-    direction = 1
-) {
-
-    if (
-        !validBody(body) ||
-        !validBody(center)
-    ) {
-        return;
-    }
-
-    const dx =
-        finite(body.x, 0) -
-        finite(center.x, 0);
-
-    const dy =
-        finite(body.y, 0) -
-        finite(center.y, 0);
-
-    const distance =
-        Math.max(
-            20,
-            Math.sqrt(
-                dx * dx +
-                dy * dy
-            )
-        );
-
-    const centerMass =
-        getBodyMass(center);
-
-    const speed =
-        Math.sqrt(
-            Math.max(
-                0,
-                G *
-                centerMass /
-                distance
-            )
-        );
-
-    const length =
-        Math.max(
-            0.0001,
-            distance
-        );
-
-    const nx = dx / length;
-    const ny = dy / length;
-
-    const tangentX =
-        -ny * direction;
-
-    const tangentY =
-        nx * direction;
-
-    body.vx =
-        finite(body.vx, 0) +
-        tangentX * speed;
-
-    body.vy =
-        finite(body.vy, 0) +
-        tangentY * speed;
-
-    clampVelocity(body);
-}
-
-
-// ============================================================
-// SET VELOCITY
-// ============================================================
-
-export function setVelocity(
-    body,
-    vx = 0,
-    vy = 0
-) {
-
-    if (!validBody(body)) {
-        return;
-    }
-
-    body.vx = finite(vx, 0);
-    body.vy = finite(vy, 0);
-
-    clampVelocity(body);
-}
-
-
-// ============================================================
-// IMPULSE
-// ============================================================
-
-export function applyImpulse(
-    body,
-    impulseX = 0,
-    impulseY = 0
-) {
-
-    if (
-        !validBody(body) ||
-        isBodyStatic(body)
-    ) {
-        return;
-    }
-
-    const mass =
-        Math.max(
-            1,
-            getBodyMass(body)
-        );
-
-    body.vx =
-        finite(body.vx, 0) +
-        finite(impulseX, 0) / mass;
-
-    body.vy =
-        finite(body.vy, 0) +
-        finite(impulseY, 0) / mass;
-
-    clampVelocity(body);
-}
-
-
-// ============================================================
-// CLAMP VELOCITY
-// ============================================================
 
 function clampVelocity(body) {
+    if (!body) return;
 
-    if (!validBody(body)) {
-        return;
-    }
+    body.vx = finite(body.vx);
+    body.vy = finite(body.vy);
 
-    let vx = finite(body.vx, 0);
-    let vy = finite(body.vy, 0);
+    const speed = Math.hypot(body.vx, body.vy);
 
-    const speed =
-        Math.sqrt(
-            vx * vx +
-            vy * vy
-        );
-
-    if (
-        !Number.isFinite(speed)
-    ) {
+    if (!Number.isFinite(speed)) {
         body.vx = 0;
         body.vy = 0;
         return;
     }
 
     if (speed > MAX_SPEED) {
-
-        const scale =
-            MAX_SPEED / speed;
-
-        vx *= scale;
-        vy *= scale;
+        const scale = MAX_SPEED / speed;
+        body.vx *= scale;
+        body.vy *= scale;
     }
-
-    body.vx = vx;
-    body.vy = vy;
 }
 
+function applyGravity(a, b, dt) {
+    if (!a || !b || a === b) return;
 
-// ============================================================
-// POSITION SANITIZATION
-// ============================================================
-
-function sanitizeBody(body) {
-
-    if (!validBody(body)) {
-        return false;
-    }
-
-    body.x = finite(body.x, 0);
-    body.y = finite(body.y, 0);
-
-    body.vx = finite(body.vx, 0);
-    body.vy = finite(body.vy, 0);
-
-    body.radius =
-        Math.max(
-            1,
-            getBodyRadius(body)
-        );
-
-    body.mass =
-        Math.max(
-            1,
-            getBodyMass(body)
-        );
-
-    return true;
-}
-
-
-// ============================================================
-// GRAVITY
-// ============================================================
-
-function applyGravity(
-    body,
-    other,
-    deltaTime
-) {
-
-    if (
-        !validBody(body) ||
-        !validBody(other) ||
-        body === other
-    ) {
+    if (isBodyStatic(a) && isBodyStatic(b)) {
         return;
     }
 
-    if (
-        isBodyStatic(body)
-    ) {
+    const dx = finite(b.x) - finite(a.x);
+    const dy = finite(b.y) - finite(a.y);
+
+    let distanceSquared = dx * dx + dy * dy;
+
+    if (!Number.isFinite(distanceSquared)) return;
+
+    distanceSquared = Math.max(
+        MIN_DISTANCE * MIN_DISTANCE,
+        distanceSquared
+    );
+
+    const distance = Math.sqrt(distanceSquared);
+
+    if (!Number.isFinite(distance) || distance <= 0) {
         return;
     }
 
-    const dx =
-        finite(other.x, 0) -
-        finite(body.x, 0);
+    const massA = getBodyMass(a);
+    const massB = getBodyMass(b);
 
-    const dy =
-        finite(other.y, 0) -
-        finite(body.y, 0);
+    const force = G * massA * massB / distanceSquared;
 
-    let distanceSquared =
-        dx * dx +
-        dy * dy;
+    if (!Number.isFinite(force)) return;
 
-    if (
-        !Number.isFinite(distanceSquared)
-    ) {
+    let ax = force * dx / distance / massA;
+    let ay = force * dy / distance / massA;
+
+    let bx = force * dx / distance / massB;
+    let by = force * dy / distance / massB;
+
+    ax = Math.max(-MAX_ACCELERATION, Math.min(MAX_ACCELERATION, ax));
+    ay = Math.max(-MAX_ACCELERATION, Math.min(MAX_ACCELERATION, ay));
+
+    bx = Math.max(-MAX_ACCELERATION, Math.min(MAX_ACCELERATION, bx));
+    by = Math.max(-MAX_ACCELERATION, Math.min(MAX_ACCELERATION, by));
+
+    if (!isBodyStatic(a)) {
+        a.vx += ax * dt;
+        a.vy += ay * dt;
+    }
+
+    if (!isBodyStatic(b)) {
+        b.vx -= bx * dt;
+        b.vy -= by * dt;
+    }
+}
+
+function applyBlackHoleEffect(body, hole, dt) {
+    if (!body || !hole || body === hole) return;
+
+    const dx = finite(hole.x) - finite(body.x);
+    const dy = finite(hole.y) - finite(body.y);
+
+    const distance = Math.hypot(dx, dy);
+
+    if (!Number.isFinite(distance) || distance < 1) {
+        return;
+    }
+
+    const influence =
+        safeNumber(hole.influenceRadius, 800);
+
+    if (distance > influence) {
+        return;
+    }
+
+    const strength =
+        safeNumber(hole.gravityStrength, 0.003);
+
+    const falloff =
+        Math.max(0.05, 1 - distance / influence);
+
+    const force = strength * falloff;
+
+    body.vx += (dx / distance) * force * dt;
+    body.vy += (dy / distance) * force * dt;
+
+    clampVelocity(body);
+}
+
+function applyGreyHoleEffect(body, hole, dt) {
+    if (!body || !hole || body === hole) return;
+
+    const dx = finite(hole.x) - finite(body.x);
+    const dy = finite(hole.y) - finite(body.y);
+
+    const distance = Math.hypot(dx, dy);
+
+    if (!Number.isFinite(distance) || distance < 1) {
+        return;
+    }
+
+    const influence =
+        safeNumber(hole.influenceRadius, 500);
+
+    if (distance > influence) {
+        return;
+    }
+
+    const strength =
+        safeNumber(hole.gravityStrength, 0.0015);
+
+    const falloff =
+        Math.max(0.05, 1 - distance / influence);
+
+    const force = strength * falloff;
+
+    body.vx += (dx / distance) * force * dt;
+    body.vy += (dy / distance) * force * dt;
+
+    clampVelocity(body);
+}
+
+function resolveCollision(a, b) {
+    if (!a || !b || a === b) return;
+
+    const dx = finite(b.x) - finite(a.x);
+    const dy = finite(b.y) - finite(a.y);
+
+    const distance = Math.hypot(dx, dy);
+
+    if (!Number.isFinite(distance) || distance <= 0) {
         return;
     }
 
     const minDistance =
-        Math.max(
-            10,
-            getBodyRadius(other) * 0.5
-        );
-
-    distanceSquared =
-        Math.max(
-            distanceSquared,
-            minDistance * minDistance
-        );
-
-    const distance =
-        Math.sqrt(
-            distanceSquared
-        );
-
-    if (
-        !Number.isFinite(distance) ||
-        distance <= 0
-    ) {
-        return;
-    }
-
-    const mass =
-        getBodyMass(other);
-
-    let acceleration =
-        G *
-        mass /
-        distanceSquared;
-
-    acceleration =
-        Math.min(
-            MAX_ACCELERATION,
-            Math.max(
-                0,
-                finite(
-                    acceleration,
-                    0
-                )
-            )
-        );
-
-    const nx =
-        dx / distance;
-
-    const ny =
-        dy / distance;
-
-    const dt =
-        Math.min(
-            0.1,
-            Math.max(
-                0,
-                finite(
-                    deltaTime,
-                    0.016
-                )
-            )
-        );
-
-    body.vx +=
-        nx *
-        acceleration *
-        dt;
-
-    body.vy +=
-        ny *
-        acceleration *
-        dt;
-
-    clampVelocity(body);
-}
-
-
-// ============================================================
-// BLACK HOLE EFFECT
-// ============================================================
-
-function applyBlackHoleEffect(
-    body,
-    hole,
-    deltaTime
-) {
-
-    if (
-        !validBody(body) ||
-        !validBody(hole) ||
-        body === hole
-    ) {
-        return;
-    }
-
-    if (
-        isBodyStatic(body)
-    ) {
-        return;
-    }
-
-    const dx =
-        finite(hole.x, 0) -
-        finite(body.x, 0);
-
-    const dy =
-        finite(hole.y, 0) -
-        finite(body.y, 0);
-
-    const distance =
-        Math.max(
-            20,
-            Math.sqrt(
-                dx * dx +
-                dy * dy
-            )
-        );
-
-    if (
-        !Number.isFinite(distance)
-    ) {
-        return;
-    }
-
-    const influence =
-        Math.max(
-            200,
-            getBodyRadius(hole) * 12
-        );
-
-    if (
-        distance > influence
-    ) {
-        return;
-    }
-
-    const strength =
-        Math.min(
-            1000,
-            getBodyMass(hole) /
-            Math.max(
-                100,
-                distance * distance
-            )
-        );
-
-    const nx =
-        dx / distance;
-
-    const ny =
-        dy / distance;
-
-    const dt =
-        Math.min(
-            0.1,
-            Math.max(
-                0,
-                finite(
-                    deltaTime,
-                    0.016
-                )
-            )
-        );
-
-    body.vx +=
-        nx *
-        strength *
-        dt;
-
-    body.vy +=
-        ny *
-        strength *
-        dt;
-
-    clampVelocity(body);
-}
-
-
-// ============================================================
-// GREY HOLE EFFECT
-// ============================================================
-
-function applyGreyHoleEffect(
-    body,
-    hole,
-    deltaTime
-) {
-
-    if (
-        !validBody(body) ||
-        !validBody(hole) ||
-        body === hole
-    ) {
-        return;
-    }
-
-    if (
-        isBodyStatic(body)
-    ) {
-        return;
-    }
-
-    const dx =
-        finite(hole.x, 0) -
-        finite(body.x, 0);
-
-    const dy =
-        finite(hole.y, 0) -
-        finite(body.y, 0);
-
-    const distance =
-        Math.max(
-            25,
-            Math.sqrt(
-                dx * dx +
-                dy * dy
-            )
-        );
-
-    const influence =
-        Math.max(
-            250,
-            getBodyRadius(hole) * 15
-        );
-
-    if (
-        distance > influence
-    ) {
-        return;
-    }
-
-    const strength =
-        Math.min(
-            500,
-            getBodyMass(hole) /
-            Math.max(
-                150,
-                distance * distance
-            )
-        );
-
-    const nx =
-        dx / distance;
-
-    const ny =
-        dy / distance;
-
-    const dt =
-        Math.min(
-            0.1,
-            Math.max(
-                0,
-                finite(
-                    deltaTime,
-                    0.016
-                )
-            )
-        );
-
-    body.vx +=
-        nx *
-        strength *
-        dt;
-
-    body.vy +=
-        ny *
-        strength *
-        dt;
-
-    clampVelocity(body);
-}
-
-
-// ============================================================
-// COLLISIONS
-// ============================================================
-
-function handleCollision(
-    a,
-    b,
-    now
-) {
-
-    if (
-        !validBody(a) ||
-        !validBody(b)
-    ) {
-        return;
-    }
-
-    if (
-        a === b
-    ) {
-        return;
-    }
-
-    const key =
-        getPairKey(a, b);
-
-    const last =
-        collisionCooldowns.get(key) || 0;
-
-    if (
-        now - last < 150
-    ) {
-        return;
-    }
-
-    const dx =
-        finite(b.x, 0) -
-        finite(a.x, 0);
-
-    const dy =
-        finite(b.y, 0) -
-        finite(a.y, 0);
-
-    const distance =
-        Math.sqrt(
-            dx * dx +
-            dy * dy
-        );
-
-    const minimumDistance =
         getBodyRadius(a) +
         getBodyRadius(b);
 
-    if (
-        !Number.isFinite(distance) ||
-        distance > minimumDistance
-    ) {
+    if (distance > minDistance) {
         return;
     }
 
-    collisionCooldowns.set(
-        key,
-        now
-    );
-
-    const nx =
-        distance > 0
-            ? dx / distance
-            : 1;
-
-    const ny =
-        distance > 0
-            ? dy / distance
-            : 0;
-
-    const avx =
-        finite(a.vx, 0);
-
-    const avy =
-        finite(a.vy, 0);
-
-    const bvx =
-        finite(b.vx, 0);
-
-    const bvy =
-        finite(b.vy, 0);
+    const nx = dx / distance;
+    const ny = dy / distance;
 
     const relativeVelocity =
-        (bvx - avx) * nx +
-        (bvy - avy) * ny;
+        (finite(b.vx) - finite(a.vx)) * nx +
+        (finite(b.vy) - finite(a.vy)) * ny;
 
-    if (
-        relativeVelocity > 0
-    ) {
+    if (relativeVelocity > 0) {
         return;
     }
 
-    const massA =
-        getBodyMass(a);
+    const massA = getBodyMass(a);
+    const massB = getBodyMass(b);
 
-    const massB =
-        getBodyMass(b);
-
-    const invA =
-        isBodyStatic(a)
-            ? 0
-            : 1 / massA;
-
-    const invB =
-        isBodyStatic(b)
-            ? 0
-            : 1 / massB;
-
-    const restitution = 0.65;
+    const restitution = 0.55;
 
     const impulse =
         -(1 + restitution) *
         relativeVelocity /
-        Math.max(
-            0.000001,
-            invA + invB
-        );
+        (1 / massA + 1 / massB);
+
+    if (!Number.isFinite(impulse)) return;
 
     if (!isBodyStatic(a)) {
-
-        a.vx -=
-            impulse *
-            invA *
-            nx;
-
-        a.vy -=
-            impulse *
-            invA *
-            ny;
+        a.vx -= impulse * nx / massA;
+        a.vy -= impulse * ny / massA;
     }
 
     if (!isBodyStatic(b)) {
-
-        b.vx +=
-            impulse *
-            invB *
-            nx;
-
-        b.vy +=
-            impulse *
-            invB *
-            ny;
+        b.vx += impulse * nx / massB;
+        b.vy += impulse * ny / massB;
     }
 
     // Separate overlapping bodies.
-    const overlap =
-        minimumDistance -
-        distance;
+    const overlap = minDistance - distance;
 
-    if (
-        overlap > 0 &&
-        Number.isFinite(overlap)
-    ) {
+    if (overlap > 0) {
+        const moveA = isBodyStatic(a)
+            ? 0
+            : overlap * (massB / (massA + massB));
 
-        const totalInverse =
-            invA + invB;
+        const moveB = isBodyStatic(b)
+            ? 0
+            : overlap * (massA / (massA + massB));
 
-        if (
-            totalInverse > 0
-        ) {
+        if (!isBodyStatic(a)) {
+            a.x -= nx * moveA;
+            a.y -= ny * moveA;
+        }
 
-            if (!isBodyStatic(a)) {
-
-                a.x -=
-                    nx *
-                    overlap *
-                    (invA / totalInverse);
-            }
-
-            if (!isBodyStatic(b)) {
-
-                b.x +=
-                    nx *
-                    overlap *
-                    (invB / totalInverse);
-            }
-
-            if (!isBodyStatic(a)) {
-
-                a.y -=
-                    ny *
-                    overlap *
-                    (invA / totalInverse);
-            }
-
-            if (!isBodyStatic(b)) {
-
-                b.y +=
-                    ny *
-                    overlap *
-                    (invB / totalInverse);
-            }
+        if (!isBodyStatic(b)) {
+            b.x += nx * moveB;
+            b.y += ny * moveB;
         }
     }
 
-    sanitizeBody(a);
-    sanitizeBody(b);
     clampVelocity(a);
     clampVelocity(b);
 }
 
-
-// ============================================================
-// PAIR KEY
-// ============================================================
-
 function getPairKey(a, b) {
-
-    if (!validBody(a) || !validBody(b)) {
-        return "";
-    }
+    if (!a || !b) return "";
 
     if (!a.__physicsId) {
         a.__physicsId =
-            Math.random()
-                .toString(36)
-                .slice(2);
+            "body_" + Math.random().toString(36).slice(2);
     }
 
     if (!b.__physicsId) {
         b.__physicsId =
-            Math.random()
-                .toString(36)
-                .slice(2);
+            "body_" + Math.random().toString(36).slice(2);
     }
 
     return a.__physicsId < b.__physicsId
@@ -918,192 +355,207 @@ function getPairKey(a, b) {
         : `${b.__physicsId}:${a.__physicsId}`;
 }
 
-
-// ============================================================
-// MAIN PHYSICS UPDATE
-// ============================================================
-
-export function updatePhysics(
-    bodies = [],
-    deltaTime = 0.016
-) {
-
-    if (
-        !Array.isArray(bodies)
-    ) {
-        return bodies;
-    }
-
-    const dt =
-        Math.min(
-            0.1,
-            Math.max(
-                0,
-                finite(
-                    deltaTime,
-                    0.016
-                )
-            )
-        );
-
-    const now =
-        performance.now();
-
-    // --------------------------------------------------------
-    // CLEAN INVALID BODIES
-    // --------------------------------------------------------
-
-    const validBodies =
-        bodies.filter(
-            body =>
-                sanitizeBody(body)
-        );
-
-    // --------------------------------------------------------
-    // GRAVITY
-    // --------------------------------------------------------
-
-    for (
-        let i = 0;
-        i < validBodies.length;
-        i++
-    ) {
-
-        const body =
-            validBodies[i];
-
-        if (
-            isBodyStatic(body)
-        ) {
-            continue;
-        }
-
-        for (
-            let j = 0;
-            j < validBodies.length;
-            j++
-        ) {
-
-            if (i === j) {
-                continue;
-            }
-
-            const other =
-                validBodies[j];
-
-            applyGravity(
-                body,
-                other,
-                dt
-            );
-
-            if (
-                other.type ===
-                "black-hole"
-            ) {
-
-                applyBlackHoleEffect(
-                    body,
-                    other,
-                    dt
-                );
-            }
-
-            if (
-                other.type ===
-                "grey-hole"
-            ) {
-
-                applyGreyHoleEffect(
-                    body,
-                    other,
-                    dt
-                );
-            }
+function cleanupPhysicsState(now) {
+    for (const [key, time] of collisionCooldowns.entries()) {
+        if (now - time > 1000) {
+            collisionCooldowns.delete(key);
         }
     }
-
-    // --------------------------------------------------------
-    // MOVE BODIES
-    // --------------------------------------------------------
-
-    for (
-        const body of validBodies
-    ) {
-
-        if (
-            isBodyStatic(body)
-        ) {
-            continue;
-        }
-
-        body.x +=
-            finite(body.vx, 0) *
-            dt;
-
-        body.y +=
-            finite(body.vy, 0) *
-            dt;
-
-        sanitizeBody(body);
-    }
-
-    // --------------------------------------------------------
-    // COLLISIONS
-    // --------------------------------------------------------
-
-    for (
-        let i = 0;
-        i < validBodies.length;
-        i++
-    ) {
-
-        for (
-            let j = i + 1;
-            j < validBodies.length;
-            j++
-        ) {
-
-            handleCollision(
-                validBodies[i],
-                validBodies[j],
-                now
-            );
-        }
-    }
-
-    // --------------------------------------------------------
-    // CLEAN COOLDOWNS
-    // --------------------------------------------------------
-
-    if (
-        collisionCooldowns.size > 1000
-    ) {
-
-        for (
-            const [key, time]
-            of collisionCooldowns
-        ) {
-
-            if (
-                now - time > 5000
-            ) {
-                collisionCooldowns.delete(
-                    key
-                );
-            }
-        }
-    }
-
-    return bodies;
 }
 
+function updatePhysics(objects, deltaTime = 1 / 60) {
+    if (!Array.isArray(objects)) {
+        return;
+    }
 
-// ============================================================
-// RESET PHYSICS
-// ============================================================
+    const dt = Math.min(
+        0.05,
+        Math.max(
+            0,
+            safeNumber(deltaTime, 1 / 60)
+        )
+    );
 
-export function resetPhysics() {
+    const now = performance.now();
 
+    // Make every object numerically safe first.
+    for (const body of objects) {
+        initializeBody(body);
+    }
+
+    // Gravity.
+    for (let i = 0; i < objects.length; i++) {
+        const a = objects[i];
+
+        if (!a) continue;
+
+        for (let j = i + 1; j < objects.length; j++) {
+            const b = objects[j];
+
+            if (!b) continue;
+
+            applyGravity(a, b, dt);
+        }
+    }
+
+    // Special cosmic-object effects.
+    for (const body of objects) {
+        if (!body || isBodyStatic(body)) continue;
+
+        for (const object of objects) {
+            if (!object || object === body) continue;
+
+            if (object.type === "black-hole") {
+                applyBlackHoleEffect(body, object, dt);
+            }
+
+            if (object.type === "grey-hole") {
+                applyGreyHoleEffect(body, object, dt);
+            }
+        }
+    }
+
+    // Move bodies.
+    for (const body of objects) {
+        if (!body || isBodyStatic(body)) continue;
+
+        body.x += finite(body.vx) * dt;
+        body.y += finite(body.vy) * dt;
+
+        body.rotation =
+            finite(body.rotation) +
+            finite(body.rotationSpeed) * dt;
+
+        if (!Number.isFinite(body.x)) body.x = 0;
+        if (!Number.isFinite(body.y)) body.y = 0;
+
+        clampVelocity(body);
+    }
+
+    // Collision detection.
+    for (let i = 0; i < objects.length; i++) {
+        const a = objects[i];
+
+        if (!a) continue;
+
+        for (let j = i + 1; j < objects.length; j++) {
+            const b = objects[j];
+
+            if (!b) continue;
+
+            const distance = distanceBetween(a, b);
+            const collisionDistance =
+                getBodyRadius(a) +
+                getBodyRadius(b);
+
+            if (
+                Number.isFinite(distance) &&
+                distance <= collisionDistance
+            ) {
+                const key = getPairKey(a, b);
+
+                const previous =
+                    collisionCooldowns.get(key) || 0;
+
+                if (now - previous > 150) {
+                    resolveCollision(a, b);
+                    collisionCooldowns.set(key, now);
+                }
+            }
+        }
+    }
+
+    cleanupPhysicsState(now);
+
+    // Final safety pass.
+    for (const body of objects) {
+        if (!body) continue;
+
+        if (!Number.isFinite(body.x)) body.x = 0;
+        if (!Number.isFinite(body.y)) body.y = 0;
+        if (!Number.isFinite(body.vx)) body.vx = 0;
+        if (!Number.isFinite(body.vy)) body.vy = 0;
+
+        clampVelocity(body);
+    }
+}
+
+function addOrbitalVelocity(body, centerBody) {
+    if (!body || !centerBody) return;
+
+    const dx = finite(body.x) - finite(centerBody.x);
+    const dy = finite(body.y) - finite(centerBody.y);
+
+    const distance = Math.hypot(dx, dy);
+
+    if (!Number.isFinite(distance) || distance < 1) {
+        return;
+    }
+
+    const centerMass = getBodyMass(centerBody);
+
+    const orbitalSpeed =
+        Math.sqrt(
+            Math.max(0, G * centerMass / distance)
+        );
+
+    if (!Number.isFinite(orbitalSpeed)) {
+        return;
+    }
+
+    body.vx = -dy / distance * orbitalSpeed;
+    body.vy = dx / distance * orbitalSpeed;
+
+    clampVelocity(body);
+}
+
+function applyImpulse(body, impulseX, impulseY) {
+    if (!body || isBodyStatic(body)) return;
+
+    const mass = getBodyMass(body);
+
+    const ix = safeNumber(impulseX);
+    const iy = safeNumber(impulseY);
+
+    body.vx += ix / mass;
+    body.vy += iy / mass;
+
+    clampVelocity(body);
+}
+
+function setVelocity(body, vx, vy) {
+    if (!body) return;
+
+    body.vx = safeNumber(vx);
+    body.vy = safeNumber(vy);
+
+    clampVelocity(body);
+}
+
+function resetPhysics() {
     collisionCooldowns.clear();
 }
+
+export {
+    updatePhysics,
+    addOrbitalVelocity,
+    applyImpulse,
+    setVelocity,
+    distanceBetween,
+    getBodyMass,
+    getBodyRadius,
+    isBodyStatic,
+    resetPhysics
+};
+
+export default {
+    updatePhysics,
+    addOrbitalVelocity,
+    applyImpulse,
+    setVelocity,
+    distanceBetween,
+    getBodyMass,
+    getBodyRadius,
+    isBodyStatic,
+    resetPhysics
+};
