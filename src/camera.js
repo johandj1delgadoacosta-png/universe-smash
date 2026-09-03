@@ -1,208 +1,124 @@
 // Universe Smash
-// Camera System
+// Camera system
 
 export class Camera {
-    constructor(
-        x = 0,
-        y = 0,
-        zoom = 1
-    ) {
-        this.x = x;
-        this.y = y;
-        this.zoom = zoom;
+    constructor(canvas = null) {
+        this.canvas = canvas;
+
+        this.x = 0;
+        this.y = 0;
+
+        this.zoom = 1;
 
         this.minZoom = 0.05;
         this.maxZoom = 20;
 
-        this.target = null;
-        this.followStrength = 0.12;
+        this.panSpeed = 1;
+
+        this.dragging = false;
+        this.lastMouseX = 0;
+        this.lastMouseY = 0;
+
+        this.enabled = false;
     }
 
-    reset(
-        x = 0,
-        y = 0,
-        zoom = 1
-    ) {
-        this.x = x;
-        this.y = y;
-        this.zoom = this.clampZoom(zoom);
-        this.target = null;
-
-        return this;
+    setCanvas(canvas) {
+        this.canvas = canvas;
     }
 
-    clampZoom(zoom) {
-        return Math.max(
+    reset() {
+        this.x = 0;
+        this.y = 0;
+        this.zoom = 1;
+    }
+
+    setZoom(value) {
+        value = Number(value);
+
+        if (!Number.isFinite(value)) {
+            return;
+        }
+
+        this.zoom = Math.max(
             this.minZoom,
-            Math.min(
-                this.maxZoom,
-                Number(zoom) || 1
-            )
+            Math.min(this.maxZoom, value)
         );
-    }
-
-    setZoom(zoom) {
-        this.zoom = this.clampZoom(zoom);
-        return this.zoom;
     }
 
     zoomIn(amount = 1.15) {
-        this.zoom = this.clampZoom(
-            this.zoom * amount
-        );
-
-        return this.zoom;
+        this.setZoom(this.zoom * amount);
     }
 
     zoomOut(amount = 1.15) {
-        this.zoom = this.clampZoom(
-            this.zoom / amount
-        );
-
-        return this.zoom;
+        this.setZoom(this.zoom / amount);
     }
 
-    move(dx = 0, dy = 0) {
-        this.x += Number(dx) || 0;
-        this.y += Number(dy) || 0;
+    move(dx, dy) {
+        dx = Number(dx);
+        dy = Number(dy);
 
-        return this;
+        if (!Number.isFinite(dx)) dx = 0;
+        if (!Number.isFinite(dy)) dy = 0;
+
+        this.x += dx;
+        this.y += dy;
     }
 
-    setPosition(x = 0, y = 0) {
-        this.x = Number(x) || 0;
-        this.y = Number(y) || 0;
+    focus(x, y) {
+        if (!Number.isFinite(x)) x = 0;
+        if (!Number.isFinite(y)) y = 0;
 
-        return this;
+        this.x = x;
+        this.y = y;
     }
 
-    getPosition() {
+    worldToScreen(x, y) {
+        const canvas = this.canvas;
+
+        if (!canvas) {
+            return {
+                x: Number.isFinite(x) ? x : 0,
+                y: Number.isFinite(y) ? y : 0
+            };
+        }
+
+        const safeX = Number.isFinite(x) ? x : 0;
+        const safeY = Number.isFinite(y) ? y : 0;
+
         return {
-            x: this.x,
-            y: this.y
+            x: (safeX - this.x) * this.zoom + canvas.width / 2,
+            y: (safeY - this.y) * this.zoom + canvas.height / 2
         };
     }
 
-    getZoom() {
-        return this.zoom;
-    }
+    screenToWorld(x, y) {
+        const canvas = this.canvas;
 
-    worldToScreen(
-        worldX,
-        worldY,
-        canvasWidth,
-        canvasHeight
-    ) {
+        if (!canvas) {
+            return {
+                x: Number.isFinite(x) ? x : 0,
+                y: Number.isFinite(y) ? y : 0
+            };
+        }
+
+        const safeX = Number.isFinite(x) ? x : 0;
+        const safeY = Number.isFinite(y) ? y : 0;
+
         return {
-            x:
-                (worldX - this.x) *
-                    this.zoom +
-                canvasWidth / 2,
-
-            y:
-                (worldY - this.y) *
-                    this.zoom +
-                canvasHeight / 2
+            x: (safeX - canvas.width / 2) / this.zoom + this.x,
+            y: (safeY - canvas.height / 2) / this.zoom + this.y
         };
     }
 
-    screenToWorld(
-        screenX,
-        screenY,
-        canvasWidth,
-        canvasHeight
-    ) {
-        return {
-            x:
-                (screenX - canvasWidth / 2) /
-                    this.zoom +
-                this.x,
-
-            y:
-                (screenY - canvasHeight / 2) /
-                    this.zoom +
-                this.y
-        };
-    }
-
-    screenRadius(worldRadius) {
-        return Math.max(
-            0.1,
-            worldRadius * this.zoom
-        );
-    }
-
-    worldDistance(screenDistance) {
-        return screenDistance / this.zoom;
-    }
-
-    screenDistance(worldDistance) {
-        return worldDistance * this.zoom;
-    }
-
-    follow(
-        target,
-        strength = this.followStrength
-    ) {
-        if (!target) {
-            this.target = null;
-            return this;
-        }
-
-        this.target = target;
-
-        const amount =
-            Math.max(
-                0,
-                Math.min(
-                    1,
-                    Number(strength) || 0
-                )
-            );
-
-        this.x +=
-            (target.x - this.x) *
-            amount;
-
-        this.y +=
-            (target.y - this.y) *
-            amount;
-
-        return this;
-    }
-
-    stopFollowing() {
-        this.target = null;
-        return this;
-    }
-
-    update() {
-        if (!this.target) {
-            return;
-        }
-
-        this.follow(
-            this.target,
-            this.followStrength
-        );
-    }
-
-    begin(ctx) {
-        if (!ctx) {
-            return;
-        }
-
-        ctx.save();
+    apply(ctx) {
+        if (!ctx || !this.canvas) return;
 
         ctx.translate(
-            ctx.canvas.width / 2,
-            ctx.canvas.height / 2
+            this.canvas.width / 2,
+            this.canvas.height / 2
         );
 
-        ctx.scale(
-            this.zoom,
-            this.zoom
-        );
+        ctx.scale(this.zoom, this.zoom);
 
         ctx.translate(
             -this.x,
@@ -210,407 +126,106 @@ export class Camera {
         );
     }
 
-    end(ctx) {
-        if (!ctx) {
-            return;
-        }
-
-        ctx.restore();
-    }
-
-    apply(ctx) {
-        this.begin(ctx);
-    }
-
-    unapply(ctx) {
-        this.end(ctx);
-    }
-
-    isPointVisible(
-        worldX,
-        worldY,
-        canvasWidth,
-        canvasHeight,
-        padding = 0
-    ) {
-        const screen =
-            this.worldToScreen(
-                worldX,
-                worldY,
-                canvasWidth,
-                canvasHeight
-            );
-
-        return (
-            screen.x >= -padding &&
-            screen.x <=
-                canvasWidth + padding &&
-            screen.y >= -padding &&
-            screen.y <=
-                canvasHeight + padding
-        );
-    }
-
-    isCircleVisible(
-        worldX,
-        worldY,
-        radius,
-        canvasWidth,
-        canvasHeight
-    ) {
-        const screen =
-            this.worldToScreen(
-                worldX,
-                worldY,
-                canvasWidth,
-                canvasHeight
-            );
-
-        const screenRadius =
-            this.screenRadius(radius);
-
-        return (
-            screen.x + screenRadius >= 0 &&
-            screen.x - screenRadius <=
-                canvasWidth &&
-            screen.y + screenRadius >= 0 &&
-            screen.y - screenRadius <=
-                canvasHeight
-        );
-    }
-
-    focusOn(
-        target,
-        canvasWidth,
-        canvasHeight
-    ) {
-        if (!target) {
-            return this;
-        }
-
-        this.x =
-            Number(target.x) || 0;
-
-        this.y =
-            Number(target.y) || 0;
-
-        return this;
-    }
-
-    focusOnAll(
-        objects = [],
-        canvasWidth = 800,
-        canvasHeight = 600,
-        padding = 100
-    ) {
-        if (!objects.length) {
-            return this;
-        }
-
-        let minX = Infinity;
-        let maxX = -Infinity;
-        let minY = Infinity;
-        let maxY = -Infinity;
-
-        for (const object of objects) {
-            if (
-                !object ||
-                !Number.isFinite(object.x) ||
-                !Number.isFinite(object.y)
-            ) {
-                continue;
-            }
-
-            const radius =
-                Number(object.radius) || 0;
-
-            minX =
-                Math.min(
-                    minX,
-                    object.x - radius
-                );
-
-            maxX =
-                Math.max(
-                    maxX,
-                    object.x + radius
-                );
-
-            minY =
-                Math.min(
-                    minY,
-                    object.y - radius
-                );
-
-            maxY =
-                Math.max(
-                    maxY,
-                    object.y + radius
-                );
-        }
+    follow(object) {
+        if (!object) return;
 
         if (
-            !Number.isFinite(minX) ||
-            !Number.isFinite(maxX) ||
-            !Number.isFinite(minY) ||
-            !Number.isFinite(maxY)
+            Number.isFinite(object.x) &&
+            Number.isFinite(object.y)
         ) {
-            return this;
+            this.x = object.x;
+            this.y = object.y;
         }
-
-        this.x =
-            (minX + maxX) / 2;
-
-        this.y =
-            (minY + maxY) / 2;
-
-        const width =
-            Math.max(
-                1,
-                maxX - minX
-            );
-
-        const height =
-            Math.max(
-                1,
-                maxY - minY
-            );
-
-        const availableWidth =
-            Math.max(
-                1,
-                canvasWidth - padding * 2
-            );
-
-        const availableHeight =
-            Math.max(
-                1,
-                canvasHeight - padding * 2
-            );
-
-        const zoomX =
-            availableWidth / width;
-
-        const zoomY =
-            availableHeight / height;
-
-        this.zoom =
-            this.clampZoom(
-                Math.min(
-                    zoomX,
-                    zoomY
-                )
-            );
-
-        return this;
-    }
-
-    handleWheel(
-        deltaY,
-        mouseX,
-        mouseY,
-        canvasWidth,
-        canvasHeight
-    ) {
-        const before =
-            this.screenToWorld(
-                mouseX,
-                mouseY,
-                canvasWidth,
-                canvasHeight
-            );
-
-        const zoomFactor =
-            deltaY < 0
-                ? 1.12
-                : 1 / 1.12;
-
-        this.zoom =
-            this.clampZoom(
-                this.zoom * zoomFactor
-            );
-
-        const after =
-            this.screenToWorld(
-                mouseX,
-                mouseY,
-                canvasWidth,
-                canvasHeight
-            );
-
-        this.x +=
-            before.x - after.x;
-
-        this.y +=
-            before.y - after.y;
-
-        return this.zoom;
     }
 }
 
-export function enableCameraZoom(
-    canvas,
-    camera = null
-) {
-    if (!canvas) {
-        return null;
-    }
-
-    const activeCamera =
-        camera ||
-        new Camera();
-
-    if (
-        canvas.dataset
-            .cameraZoomBound ===
-        "true"
-    ) {
-        return activeCamera;
-    }
-
-    canvas.dataset
-        .cameraZoomBound =
-        "true";
+export function enableCameraZoom(canvas, camera) {
+    if (!canvas || !camera) return;
 
     canvas.addEventListener(
         "wheel",
-        event => {
+        (event) => {
             event.preventDefault();
 
-            const rect =
-                canvas.getBoundingClientRect();
+            const mouseX = event.offsetX;
+            const mouseY = event.offsetY;
 
-            const mouseX =
-                event.clientX -
-                rect.left;
-
-            const mouseY =
-                event.clientY -
-                rect.top;
-
-            activeCamera.handleWheel(
-                event.deltaY,
+            const before = camera.screenToWorld(
                 mouseX,
-                mouseY,
-                canvas.width,
-                canvas.height
+                mouseY
             );
+
+            if (event.deltaY < 0) {
+                camera.zoomIn(1.12);
+            } else {
+                camera.zoomOut(1.12);
+            }
+
+            const after = camera.screenToWorld(
+                mouseX,
+                mouseY
+            );
+
+            camera.x += before.x - after.x;
+            camera.y += before.y - after.y;
         },
-        {
-            passive: false
-        }
+        { passive: false }
     );
-
-    return activeCamera;
 }
 
-export function enableCameraPan(
-    canvas,
-    camera = null
-) {
-    if (!canvas) {
-        return null;
-    }
+export function enableCameraPan(canvas, camera) {
+    if (!canvas || !camera) return;
 
-    const activeCamera =
-        camera ||
-        new Camera();
-
-    if (
-        canvas.dataset
-            .cameraPanBound ===
-        "true"
-    ) {
-        return activeCamera;
-    }
-
-    canvas.dataset
-        .cameraPanBound =
-        "true";
-
-    let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    canvas.addEventListener(
-        "pointerdown",
-        event => {
-            if (
-                event.button !== 1 &&
-                event.button !== 2
-            ) {
-                return;
-            }
-
-            dragging = true;
-
-            lastX = event.clientX;
-            lastY = event.clientY;
-
-            canvas.setPointerCapture(
-                event.pointerId
-            );
+    canvas.addEventListener("mousedown", (event) => {
+        if (
+            event.button !== 1 &&
+            event.button !== 2
+        ) {
+            return;
         }
-    );
 
-    canvas.addEventListener(
-        "pointermove",
-        event => {
-            if (!dragging) {
-                return;
-            }
+        event.preventDefault();
 
-            const dx =
-                event.clientX - lastX;
+        camera.dragging = true;
 
-            const dy =
-                event.clientY - lastY;
+        camera.lastMouseX = event.clientX;
+        camera.lastMouseY = event.clientY;
+    });
 
-            activeCamera.move(
-                -dx / activeCamera.zoom,
-                -dy / activeCamera.zoom
-            );
+    window.addEventListener("mousemove", (event) => {
+        if (!camera.dragging) return;
 
-            lastX = event.clientX;
-            lastY = event.clientY;
-        }
-    );
+        const dx =
+            event.clientX -
+            camera.lastMouseX;
 
-    canvas.addEventListener(
-        "pointerup",
-        event => {
-            dragging = false;
+        const dy =
+            event.clientY -
+            camera.lastMouseY;
 
-            try {
-                canvas.releasePointerCapture(
-                    event.pointerId
-                );
-            } catch (error) {
-                // Pointer capture may already be released.
-            }
-        }
-    );
+        camera.x -= dx / camera.zoom;
+        camera.y -= dy / camera.zoom;
 
-    canvas.addEventListener(
-        "contextmenu",
-        event => {
-            event.preventDefault();
-        }
-    );
+        camera.lastMouseX = event.clientX;
+        camera.lastMouseY = event.clientY;
+    });
 
-    return activeCamera;
+    window.addEventListener("mouseup", () => {
+        camera.dragging = false;
+    });
+
+    canvas.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+    });
 }
 
-export function createCamera(
-    x = 0,
-    y = 0,
-    zoom = 1
-) {
-    return new Camera(
-        x,
-        y,
-        zoom
-    );
+export function createCamera(canvas) {
+    const camera = new Camera(canvas);
+
+    enableCameraZoom(canvas, camera);
+    enableCameraPan(canvas, camera);
+
+    return camera;
 }
 
 export default Camera;
