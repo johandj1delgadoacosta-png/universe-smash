@@ -41,7 +41,32 @@ import {
 
 
 import {
-  createAntimatterPlanet
+  createStar
+} from "../objects/star.js";
+
+
+import {
+  createBlackHole,
+  updateBlackHole
+} from "../objects/black-hole.js";
+
+
+import {
+  createGreyHole,
+  updateGreyHole
+} from "../objects/grey-hole.js";
+
+
+import {
+  createWormhole,
+  updateWormhole,
+  linkWormholes
+} from "../objects/wormhole.js";
+
+
+import {
+  createAntimatterPlanet,
+  updateAntimatterPlanet
 } from "../objects/antimatter-planet.js";
 
 
@@ -65,7 +90,11 @@ const SolarSystem = {
 
   lastMouseX: 0,
 
-  lastMouseY: 0
+  lastMouseY: 0,
+
+  wormholes: [],
+
+  zoomEnabled: false
 
 };
 
@@ -74,9 +103,7 @@ const SolarSystem = {
 // START SOLAR SYSTEM MODE
 // =========================================
 
-export function startSolarSystem(
-  canvas
-) {
+export function startSolarSystem(canvas) {
 
   SolarSystem.active = true;
 
@@ -85,13 +112,23 @@ export function startSolarSystem(
   SolarSystem.ctx =
     canvas.getContext("2d");
 
-
   SolarSystem.objects = [];
+
+  SolarSystem.wormholes = [];
 
 
   Camera.reset();
 
-  enableCameraZoom(canvas);
+
+  // Only add zoom listener once
+
+  if (!SolarSystem.zoomEnabled) {
+
+    enableCameraZoom(canvas);
+
+    SolarSystem.zoomEnabled = true;
+
+  }
 
 
   createSandboxMenu();
@@ -105,7 +142,7 @@ export function startSolarSystem(
 
 
 // =========================================
-// STOP MODE
+// STOP SOLAR SYSTEM MODE
 // =========================================
 
 export function stopSolarSystem() {
@@ -113,6 +150,8 @@ export function stopSolarSystem() {
   SolarSystem.active = false;
 
   SolarSystem.objects = [];
+
+  SolarSystem.wormholes = [];
 
 
   const menu =
@@ -159,37 +198,89 @@ function createSandboxMenu() {
 
   menu.innerHTML = `
 
-    <h2>☀️ SOLAR SYSTEM MODE</h2>
+    <h2>🌌 SOLAR SYSTEM MODE</h2>
 
-    <p>Add celestial objects:</p>
+    <p class="sandbox-description">
+      Select an object, then click in space to place it.
+    </p>
 
-    <button data-object="planet">
-      🌍 Planet
-    </button>
 
-    <button data-object="moon">
-      🌕 Moon
-    </button>
+    <div class="object-section">
 
-    <button data-object="asteroid">
-      ☄️ Asteroid
-    </button>
+      <h3>⭐ STARS</h3>
 
-    <button data-object="antimatter">
-      🟣 Antimatter Planet
-    </button>
+      <button data-object="star">
+        ⭐ Star
+      </button>
 
-    <button id="clear-system">
-      🗑️ Clear System
-    </button>
+    </div>
+
+
+    <div class="object-section">
+
+      <h3>🪐 PLANETS</h3>
+
+      <button data-object="planet">
+        🌍 Planet
+      </button>
+
+      <button data-object="moon">
+        🌕 Moon
+      </button>
+
+      <button data-object="asteroid">
+        ☄️ Asteroid
+      </button>
+
+      <button data-object="antimatter">
+        🟣 Antimatter World
+      </button>
+
+    </div>
+
+
+    <div class="object-section">
+
+      <h3>🌌 COSMIC OBJECTS</h3>
+
+      <button data-object="black-hole">
+        🕳️ Black Hole
+      </button>
+
+      <button data-object="grey-hole">
+        🩶 Grey Hole
+      </button>
+
+      <button data-object="wormhole">
+        🌀 Wormhole
+      </button>
+
+    </div>
+
+
+    <div class="object-section">
+
+      <h3>⚙️ SYSTEM</h3>
+
+      <button id="reset-camera">
+        🔭 Reset Camera
+      </button>
+
+      <button id="clear-system">
+        🗑️ Clear System
+      </button>
+
+    </div>
 
   `;
 
 
-  document.body.appendChild(
-    menu
-  );
+  document.body.appendChild(menu);
 
+
+  // ---------------------------------------
+  // OBJECT BUTTONS
+  // ---------------------------------------
 
   menu
     .querySelectorAll(
@@ -200,38 +291,78 @@ function createSandboxMenu() {
 
         button.addEventListener(
           "click",
-
           () => {
 
             SolarSystem.selectedObject =
               button.dataset.object;
 
-          }
 
+            // Visual selected state
+
+            menu
+              .querySelectorAll(
+                "button[data-object]"
+              )
+              .forEach(
+                otherButton => {
+
+                  otherButton.classList.remove(
+                    "selected-object"
+                  );
+
+                }
+              );
+
+
+            button.classList.add(
+              "selected-object"
+            );
+
+          }
         );
 
       }
     );
 
 
+  // ---------------------------------------
+  // RESET CAMERA
+  // ---------------------------------------
+
+  document
+    .getElementById("reset-camera")
+    .addEventListener(
+      "click",
+      () => {
+
+        Camera.reset();
+
+      }
+    );
+
+
+  // ---------------------------------------
+  // CLEAR SYSTEM
+  // ---------------------------------------
+
   document
     .getElementById("clear-system")
     .addEventListener(
       "click",
-
       () => {
 
         SolarSystem.objects = [];
 
-      }
+        SolarSystem.wormholes = [];
 
+      }
     );
 
 }
 
 
 // =========================================
-// ADD OBJECT
+// ADD SOLAR OBJECT
 // =========================================
 
 export function addSolarObject(
@@ -255,7 +386,7 @@ export function addSolarObject(
     );
 
 
-  let object;
+  let object = null;
 
 
   switch (
@@ -263,9 +394,9 @@ export function addSolarObject(
   ) {
 
 
-    // -------------------------------------
+    // =====================================
     // PLANET
-    // -------------------------------------
+    // =====================================
 
     case "planet":
 
@@ -279,9 +410,9 @@ export function addSolarObject(
       break;
 
 
-    // -------------------------------------
+    // =====================================
     // MOON
-    // -------------------------------------
+    // =====================================
 
     case "moon":
 
@@ -295,9 +426,9 @@ export function addSolarObject(
       break;
 
 
-    // -------------------------------------
+    // =====================================
     // ASTEROID
-    // -------------------------------------
+    // =====================================
 
     case "asteroid":
 
@@ -311,9 +442,70 @@ export function addSolarObject(
       break;
 
 
-    // -------------------------------------
-    // ANTIMATTER PLANET
-    // -------------------------------------
+    // =====================================
+    // STAR
+    // =====================================
+
+    case "star":
+
+      object =
+        createStar(
+          "yellow",
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
+
+
+    // =====================================
+    // BLACK HOLE
+    // =====================================
+
+    case "black-hole":
+
+      object =
+        createBlackHole(
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
+
+
+    // =====================================
+    // GREY HOLE
+    // =====================================
+
+    case "grey-hole":
+
+      object =
+        createGreyHole(
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
+
+
+    // =====================================
+    // WORMHOLE
+    // =====================================
+
+    case "wormhole":
+
+      object =
+        createWormhole(
+          worldPosition.x,
+          worldPosition.y
+        );
+
+      break;
+
+
+    // =====================================
+    // ANTIMATTER WORLD
+    // =====================================
 
     case "antimatter":
 
@@ -328,11 +520,168 @@ export function addSolarObject(
   }
 
 
+  // ---------------------------------------
+  // ADD OBJECT
+  // ---------------------------------------
+
   if (object) {
 
-    SolarSystem.objects.push(
-      object
+    SolarSystem.objects.push(object);
+
+
+    // -------------------------------------
+    // WORMHOLE LINKING
+    // -------------------------------------
+
+    if (
+      object.type === "wormhole"
+    ) {
+
+      SolarSystem.wormholes.push(
+        object
+      );
+
+
+      // Link every pair of wormholes
+
+      if (
+        SolarSystem.wormholes.length >= 2
+      ) {
+
+        const total =
+          SolarSystem.wormholes.length;
+
+
+        const wormholeA =
+          SolarSystem.wormholes[
+            total - 2
+          ];
+
+
+        const wormholeB =
+          SolarSystem.wormholes[
+            total - 1
+          ];
+
+
+        linkWormholes(
+          wormholeA,
+          wormholeB
+        );
+
+      }
+
+    }
+
+
+    console.log(
+      `Added ${object.type}`
     );
+
+  }
+
+}
+
+
+// =========================================
+// UPDATE SPECIAL OBJECTS
+// =========================================
+
+function updateSpecialObjects(
+  deltaTime
+) {
+
+  const objects =
+    SolarSystem.objects;
+
+
+  for (
+    const object of objects
+  ) {
+
+
+    // BLACK HOLE
+
+    if (
+      object.type === "black-hole"
+    ) {
+
+      updateBlackHole(
+        object,
+        objects,
+        deltaTime
+      );
+
+    }
+
+
+    // GREY HOLE
+
+    if (
+      object.type === "grey-hole"
+    ) {
+
+      updateGreyHole(
+        object,
+        objects,
+        deltaTime
+      );
+
+    }
+
+
+    // WORMHOLE
+
+    if (
+      object.type === "wormhole"
+    ) {
+
+      updateWormhole(
+        object,
+        objects,
+        deltaTime
+      );
+
+    }
+
+
+    // ANTIMATTER PLANET
+
+    if (
+      object.type ===
+      "antimatter-planet"
+    ) {
+
+      const reaction =
+        updateAntimatterPlanet(
+          object,
+          objects,
+          deltaTime
+        );
+
+
+      if (reaction) {
+
+        createExplosion(
+          reaction.position.x,
+          reaction.position.y,
+          {
+
+            count: 120,
+
+            color:
+              reaction.color,
+
+            size: 12,
+
+            speed: 14
+
+          }
+        );
+
+      }
+
+    }
 
   }
 
@@ -347,16 +696,23 @@ export function updateSolarSystem(
   deltaTime = 1
 ) {
 
-  if (!SolarSystem.active) return;
+  if (!SolarSystem.active) {
+
+    return;
+
+  }
 
 
   const activeObjects =
     SolarSystem.objects.filter(
-      object => !object.destroyed
+      object =>
+        !object.destroyed
     );
 
 
-  // Update physics
+  // ---------------------------------------
+  // NORMAL PHYSICS
+  // ---------------------------------------
 
   updatePhysics(
     activeObjects,
@@ -364,25 +720,46 @@ export function updateSolarSystem(
   );
 
 
-  // Update particles
+  // ---------------------------------------
+  // SPECIAL OBJECTS
+  // ---------------------------------------
+
+  updateSpecialObjects(
+    deltaTime
+  );
+
+
+  // ---------------------------------------
+  // PARTICLES
+  // ---------------------------------------
 
   updateParticles(
     deltaTime
   );
 
 
-  // Remove destroyed objects
+  // ---------------------------------------
+  // REMOVE DESTROYED OBJECTS
+  // ---------------------------------------
 
   SolarSystem.objects =
     SolarSystem.objects.filter(
-      object => !object.destroyed
+      object =>
+        !object.destroyed
+    );
+
+
+  SolarSystem.wormholes =
+    SolarSystem.wormholes.filter(
+      wormhole =>
+        !wormhole.destroyed
     );
 
 }
 
 
 // =========================================
-// DRAW BACKGROUND
+// DRAW SPACE BACKGROUND
 // =========================================
 
 function drawBackground(
@@ -393,6 +770,7 @@ function drawBackground(
   ctx.fillStyle =
     "#02030a";
 
+
   ctx.fillRect(
     0,
     0,
@@ -401,37 +779,44 @@ function drawBackground(
   );
 
 
-  // Simple stars
-
-  ctx.fillStyle =
-    "white";
-
+  // Deterministic star field
 
   for (
     let i = 0;
-    i < 120;
+    i < 180;
     i++
   ) {
 
     const x =
-      (i * 137) %
+      (i * 97) %
       canvas.width;
 
+
     const y =
-      (i * 73) %
+      (i * 173) %
       canvas.height;
 
 
+    const size =
+      i % 8 === 0
+        ? 2
+        : 1;
+
+
     ctx.globalAlpha =
-      0.2 +
-      (i % 5) * 0.15;
+      0.25 +
+      (i % 5) * 0.12;
+
+
+    ctx.fillStyle =
+      "#ffffff";
 
 
     ctx.fillRect(
       x,
       y,
-      1,
-      1
+      size,
+      size
     );
 
   }
@@ -461,17 +846,209 @@ function drawObject(
 
 
   const radius =
-    (object.radius ?? 20) *
-    Camera.zoom;
+    Math.max(
+      2,
+      (object.radius ?? 20) *
+      Camera.zoom
+    );
 
 
   ctx.save();
 
 
-  // Glow
+  // ---------------------------------------
+  // BLACK HOLE VISUAL
+  // ---------------------------------------
+
+  if (
+    object.type === "black-hole"
+  ) {
+
+    // Purple outer glow
+
+    ctx.shadowBlur =
+      radius * 2;
+
+    ctx.shadowColor =
+      "#8a2dff";
+
+
+    ctx.fillStyle =
+      "#8a2dff";
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      position.x,
+      position.y,
+      radius * 1.2,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    // Dark center
+
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle =
+      "#000000";
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      position.x,
+      position.y,
+      radius,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+    return;
+
+  }
+
+
+  // ---------------------------------------
+  // GREY HOLE VISUAL
+  // ---------------------------------------
+
+  if (
+    object.type === "grey-hole"
+  ) {
+
+    ctx.shadowBlur =
+      radius * 1.5;
+
+    ctx.shadowColor =
+      "#8a1111";
+
+
+    ctx.fillStyle =
+      "#555555";
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      position.x,
+      position.y,
+      radius,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    // Dim red light
+
+    ctx.fillStyle =
+      "#a83232";
+
+
+    ctx.globalAlpha =
+      0.7;
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      position.x,
+      position.y,
+      radius * 0.35,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+    return;
+
+  }
+
+
+  // ---------------------------------------
+  // WORMHOLE VISUAL
+  // ---------------------------------------
+
+  if (
+    object.type === "wormhole"
+  ) {
+
+    ctx.shadowBlur =
+      radius * 2;
+
+    ctx.shadowColor =
+      "#46eaff";
+
+
+    ctx.strokeStyle =
+      "#8b4dff";
+
+    ctx.lineWidth =
+      Math.max(
+        2,
+        radius * 0.25
+      );
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      position.x,
+      position.y,
+      radius,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    ctx.strokeStyle =
+      "#46eaff";
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      position.x,
+      position.y,
+      radius * 0.55,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    ctx.restore();
+
+    return;
+
+  }
+
+
+  // ---------------------------------------
+  // NORMAL OBJECT
+  // ---------------------------------------
 
   ctx.shadowBlur =
     radius * 0.8;
+
 
   ctx.shadowColor =
     object.glow ??
@@ -513,7 +1090,9 @@ export function drawSolarSystem() {
     !SolarSystem.ctx ||
     !SolarSystem.canvas
   ) {
+
     return;
+
   }
 
 
@@ -530,6 +1109,8 @@ export function drawSolarSystem() {
   );
 
 
+  // Draw objects
+
   SolarSystem.objects.forEach(
     object => {
 
@@ -543,6 +1124,8 @@ export function drawSolarSystem() {
   );
 
 
+  // Draw particles
+
   drawParticles(
     ctx,
     Camera,
@@ -553,14 +1136,18 @@ export function drawSolarSystem() {
 
 
 // =========================================
-// HANDLE MOUSE DOWN
+// MOUSE DOWN
 // =========================================
 
 export function handleSolarMouseDown(
   event
 ) {
 
-  if (!SolarSystem.active) return;
+  if (!SolarSystem.active) {
+
+    return;
+
+  }
 
 
   const rect =
@@ -578,9 +1165,11 @@ export function handleSolarMouseDown(
     rect.top;
 
 
-  // Left click adds object
+  // LEFT CLICK = ADD OBJECT
 
-  if (event.button === 0) {
+  if (
+    event.button === 0
+  ) {
 
     addSolarObject(
       x,
@@ -590,7 +1179,7 @@ export function handleSolarMouseDown(
   }
 
 
-  // Middle/right drag moves camera
+  // MIDDLE OR RIGHT CLICK = PAN CAMERA
 
   if (
     event.button === 1 ||
@@ -600,8 +1189,10 @@ export function handleSolarMouseDown(
     SolarSystem.dragging =
       true;
 
+
     SolarSystem.lastMouseX =
       event.clientX;
+
 
     SolarSystem.lastMouseY =
       event.clientY;
@@ -612,7 +1203,7 @@ export function handleSolarMouseDown(
 
 
 // =========================================
-// HANDLE MOUSE MOVE
+// MOUSE MOVE
 // =========================================
 
 export function handleSolarMouseMove(
@@ -623,7 +1214,9 @@ export function handleSolarMouseMove(
     !SolarSystem.active ||
     !SolarSystem.dragging
   ) {
+
     return;
+
   }
 
 
@@ -638,13 +1231,17 @@ export function handleSolarMouseMove(
 
 
   Camera.move(
+
     -dx / Camera.zoom,
+
     -dy / Camera.zoom
+
   );
 
 
   SolarSystem.lastMouseX =
     event.clientX;
+
 
   SolarSystem.lastMouseY =
     event.clientY;
@@ -653,7 +1250,7 @@ export function handleSolarMouseMove(
 
 
 // =========================================
-// HANDLE MOUSE UP
+// MOUSE UP
 // =========================================
 
 export function handleSolarMouseUp() {
