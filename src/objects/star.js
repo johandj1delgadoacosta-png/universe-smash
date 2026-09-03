@@ -1,132 +1,398 @@
-// src/objects/star.js
+// Universe Smash - Star Objects
+// Stable stars, blue hypergiants, and contact binary stars.
+// All drawing values are protected against NaN / Infinity.
 
-export function createStar(x = 0, y = 0, options = {}) {
-    const type = options.type || "star";
+function finite(value, fallback = 0) {
+    return Number.isFinite(value) ? value : fallback;
+}
 
-    const presets = {
-        star: {
-            name: "Star",
-            radius: 45,
-            mass: 5000,
-            temperature: 5800,
-            luminosity: 1,
-            color: "#fff4c4"
-        },
+function positive(value, fallback = 1) {
+    const n = Number(value);
 
-        blueHypergiant: {
-            name: "Blue Hypergiant",
-            radius: 85,
-            mass: 15000,
-            temperature: 30000,
-            luminosity: 25,
-            color: "#8fd7ff"
-        }
-    };
+    if (!Number.isFinite(n) || n <= 0) {
+        return fallback;
+    }
 
-    const preset =
-        presets[type] || presets.star;
+    return n;
+}
 
-    return {
-        type,
-        name: preset.name,
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
 
-        x,
-        y,
+function safeContext(ctx) {
+    return (
+        ctx &&
+        typeof ctx.beginPath === "function" &&
+        typeof ctx.arc === "function"
+    );
+}
 
-        radius: options.radius || preset.radius,
-        mass: options.mass || preset.mass,
+/* ---------------------------------------------------------
+   STAR CREATION
+--------------------------------------------------------- */
 
-        temperature: preset.temperature,
-        luminosity: preset.luminosity,
+function createStar(options = {}) {
+    const star = {
+        type: "star",
 
-        color: options.color || preset.color,
+        x: finite(options.x, 0),
+        y: finite(options.y, 0),
 
-        velocity: {
-            x: options.velocityX || 0,
-            y: options.velocityY || 0
-        },
+        radius: positive(options.radius, 35),
 
-        rotation: 0,
-        rotationSpeed: 0.0005,
+        mass: positive(options.mass, 100000),
 
-        glow: 1,
-        pulse: Math.random() * Math.PI * 2,
+        vx: finite(options.vx, 0),
+        vy: finite(options.vy, 0),
+
+        rotation: finite(options.rotation, 0),
+        rotationSpeed: finite(options.rotationSpeed, 0.001),
+
+        temperature: positive(options.temperature, 5800),
+
+        color: options.color || "#fff4d6",
+        coreColor: options.coreColor || "#ffffff",
+
+        glow: positive(options.glow, 1),
 
         static: options.static === true,
 
-        destroyed: false
+        pulse: finite(options.pulse, 0),
+        pulseSpeed: finite(options.pulseSpeed, 0.002),
+
+        name: options.name || "Star"
     };
+
+    return sanitizeStar(star);
 }
 
-export function createBlueHypergiant(
-    x = 0,
-    y = 0,
-    options = {}
-) {
-    return createStar(x, y, {
+/* ---------------------------------------------------------
+   BLUE HYPERGIANT
+--------------------------------------------------------- */
+
+function createBlueHypergiant(options = {}) {
+    const star = createStar({
         ...options,
-        type: "blueHypergiant"
+
+        type: "blueHypergiant",
+
+        radius: positive(options.radius, 70),
+
+        mass: positive(options.mass, 500000),
+
+        temperature: positive(options.temperature, 30000),
+
+        color: options.color || "#9fd7ff",
+
+        coreColor: options.coreColor || "#eaf7ff",
+
+        glow: positive(options.glow, 2.5),
+
+        name: options.name || "Blue Hypergiant"
     });
+
+    star.type = "blueHypergiant";
+
+    return sanitizeStar(star);
 }
 
-export function updateStar(star, deltaTime = 1) {
-    if (!star || star.destroyed) return;
+/* ---------------------------------------------------------
+   CONTACT BINARY
+--------------------------------------------------------- */
+
+function createContactBinary(options = {}) {
+    const radius = positive(options.radius, 45);
+
+    const binary = {
+        type: "contact-binary",
+
+        x: finite(options.x, 0),
+        y: finite(options.y, 0),
+
+        radius,
+
+        mass: positive(options.mass, 700000),
+
+        vx: finite(options.vx, 0),
+        vy: finite(options.vy, 0),
+
+        rotation: finite(options.rotation, 0),
+
+        rotationSpeed: finite(
+            options.rotationSpeed,
+            0.003
+        ),
+
+        orbitAngle: finite(options.orbitAngle, 0),
+
+        orbitSpeed: finite(
+            options.orbitSpeed,
+            0.01
+        ),
+
+        starRadius: radius * 0.72,
+
+        colorA: options.colorA || "#fff2c7",
+        colorB: options.colorB || "#ffd27a",
+
+        coreA: options.coreA || "#ffffff",
+        coreB: options.coreB || "#fff3c4",
+
+        glow: positive(options.glow, 1.8),
+
+        static: options.static === true,
+
+        pulse: finite(options.pulse, 0),
+
+        pulseSpeed: finite(
+            options.pulseSpeed,
+            0.003
+        ),
+
+        name: options.name || "Contact Binary"
+    };
+
+    return sanitizeStar(binary);
+}
+
+/* ---------------------------------------------------------
+   SANITIZATION
+--------------------------------------------------------- */
+
+function sanitizeStar(star) {
+    if (!star) {
+        return null;
+    }
+
+    star.x = finite(star.x, 0);
+    star.y = finite(star.y, 0);
+
+    star.radius = positive(star.radius, 10);
+
+    star.mass = positive(star.mass, 1);
+
+    star.vx = finite(star.vx, 0);
+    star.vy = finite(star.vy, 0);
+
+    star.rotation = finite(star.rotation, 0);
+    star.rotationSpeed = finite(
+        star.rotationSpeed,
+        0
+    );
+
+    star.temperature = positive(
+        star.temperature,
+        5800
+    );
+
+    star.glow = positive(
+        star.glow,
+        1
+    );
+
+    star.pulse = finite(
+        star.pulse,
+        0
+    );
+
+    star.pulseSpeed = finite(
+        star.pulseSpeed,
+        0.002
+    );
+
+    return star;
+}
+
+/* ---------------------------------------------------------
+   UPDATE STAR
+--------------------------------------------------------- */
+
+function updateStar(star, deltaTime = 1 / 60) {
+    if (!star) return;
+
+    sanitizeStar(star);
+
+    const dt = clamp(
+        finite(deltaTime, 1 / 60),
+        0,
+        0.1
+    );
+
+    if (!star.static) {
+        star.x += finite(star.vx) * dt;
+        star.y += finite(star.vy) * dt;
+    }
+
+    star.rotation +=
+        finite(star.rotationSpeed) * dt;
 
     star.pulse +=
-        0.015 * deltaTime;
+        finite(star.pulseSpeed) * dt;
 
-    star.glow =
-        1 +
-        Math.sin(star.pulse) * 0.08;
-
-    star.rotation =
-        (star.rotation || 0) +
-        (star.rotationSpeed || 0) *
-        deltaTime;
+    sanitizeStar(star);
 }
 
-function drawGlow(
+/* ---------------------------------------------------------
+   UPDATE CONTACT BINARY
+--------------------------------------------------------- */
+
+function updateContactBinary(
+    binary,
+    deltaTime = 1 / 60
+) {
+    if (!binary) return;
+
+    sanitizeStar(binary);
+
+    const dt = clamp(
+        finite(deltaTime, 1 / 60),
+        0,
+        0.1
+    );
+
+    if (!binary.static) {
+        binary.x += finite(binary.vx) * dt;
+        binary.y += finite(binary.vy) * dt;
+    }
+
+    binary.rotation +=
+        finite(binary.rotationSpeed) * dt;
+
+    binary.orbitAngle +=
+        finite(binary.orbitSpeed) * dt;
+
+    binary.pulse +=
+        finite(binary.pulseSpeed) * dt;
+
+    sanitizeStar(binary);
+}
+
+/* ---------------------------------------------------------
+   SAFE GRADIENT
+--------------------------------------------------------- */
+
+function createSafeRadialGradient(
     ctx,
     x,
     y,
-    radius,
-    color,
-    strength = 1
+    innerRadius,
+    outerRadius,
+    innerColor,
+    outerColor
 ) {
-    const gradient =
-        ctx.createRadialGradient(
-            x,
-            y,
-            radius * 0.15,
-            x,
-            y,
-            radius * 3.5
+    if (!ctx || typeof ctx.createRadialGradient !== "function") {
+        return null;
+    }
+
+    x = finite(x, 0);
+    y = finite(y, 0);
+
+    innerRadius = Math.max(
+        0.1,
+        positive(innerRadius, 1)
+    );
+
+    outerRadius = Math.max(
+        innerRadius + 0.1,
+        positive(outerRadius, innerRadius + 1)
+    );
+
+    try {
+        const gradient =
+            ctx.createRadialGradient(
+                x,
+                y,
+                innerRadius,
+                x,
+                y,
+                outerRadius
+            );
+
+        gradient.addColorStop(
+            0,
+            innerColor
         );
 
-    gradient.addColorStop(
-        0,
-        color
+        gradient.addColorStop(
+            1,
+            outerColor
+        );
+
+        return gradient;
+    } catch (error) {
+        console.warn(
+            "Universe Smash: Star gradient skipped.",
+            error
+        );
+
+        return null;
+    }
+}
+
+/* ---------------------------------------------------------
+   STAR GLOW
+--------------------------------------------------------- */
+
+function drawGlow(
+    ctx,
+    star,
+    scale = 1
+) {
+    if (!safeContext(ctx) || !star) {
+        return;
+    }
+
+    sanitizeStar(star);
+
+    const x = finite(star.x, 0);
+    const y = finite(star.y, 0);
+
+    const radius = positive(
+        star.radius,
+        10
     );
 
-    gradient.addColorStop(
-        0.25,
-        color
+    const glow = positive(
+        star.glow,
+        1
     );
 
-    gradient.addColorStop(
-        0.6,
-        "rgba(255,255,255,0.08)"
+    const safeScale = clamp(
+        finite(scale, 1),
+        0.05,
+        100
     );
 
-    gradient.addColorStop(
-        1,
-        "rgba(0,0,0,0)"
-    );
+    const glowRadius =
+        Math.max(
+            radius * 1.5,
+            radius * glow * 3
+        ) * safeScale;
+
+    if (!Number.isFinite(glowRadius)) {
+        return;
+    }
+
+    const gradient =
+        createSafeRadialGradient(
+            ctx,
+            x,
+            y,
+            radius * 0.1,
+            glowRadius,
+            star.coreColor || "#ffffff",
+            "rgba(255,255,255,0)"
+        );
+
+    if (!gradient) {
+        return;
+    }
 
     ctx.save();
 
-    ctx.globalAlpha =
-        0.35 * strength;
+    ctx.globalCompositeOperation =
+        "lighter";
 
     ctx.fillStyle = gradient;
 
@@ -135,7 +401,7 @@ function drawGlow(
     ctx.arc(
         x,
         y,
-        radius * 3.5,
+        glowRadius,
         0,
         Math.PI * 2
     );
@@ -145,117 +411,240 @@ function drawGlow(
     ctx.restore();
 }
 
-export function drawStar(
+/* ---------------------------------------------------------
+   STAR BODY
+--------------------------------------------------------- */
+
+function drawStar(
     ctx,
     star,
-    camera = null
+    scale = 1
 ) {
-    if (!ctx || !star) return;
-
-    let screenX = star.x;
-    let screenY = star.y;
-
-    let scale = 1;
-
-    if (camera) {
-        const screen =
-            camera.worldToScreen(
-                star.x,
-                star.y
-            );
-
-        screenX = screen.x;
-        screenY = screen.y;
-
-        scale = camera.zoom || 1;
+    if (!safeContext(ctx) || !star) {
+        return;
     }
 
-    const radius =
-        Math.max(
-            2,
-            star.radius * scale
-        );
+    sanitizeStar(star);
 
-    const isHypergiant =
-        star.type === "blueHypergiant";
+    const x = finite(star.x, 0);
+    const y = finite(star.y, 0);
 
-    const glowColor =
-        isHypergiant
-            ? "rgba(80,180,255,0.8)"
-            : "rgba(255,210,80,0.8)";
+    const radius = positive(
+        star.radius,
+        10
+    );
+
+    const safeScale = clamp(
+        finite(scale, 1),
+        0.05,
+        100
+    );
+
+    const drawRadius =
+        radius * safeScale;
+
+    if (!Number.isFinite(drawRadius) ||
+        drawRadius <= 0) {
+        return;
+    }
 
     drawGlow(
         ctx,
-        screenX,
-        screenY,
-        radius,
-        glowColor,
-        star.glow || 1
+        star,
+        safeScale
     );
 
-    const surfaceGradient =
-        ctx.createRadialGradient(
-            screenX - radius * 0.3,
-            screenY - radius * 0.3,
-            radius * 0.05,
-            screenX,
-            screenY,
-            radius
+    const gradient =
+        createSafeRadialGradient(
+            ctx,
+            x - drawRadius * 0.25,
+            y - drawRadius * 0.25,
+            Math.max(
+                0.1,
+                drawRadius * 0.05
+            ),
+            Math.max(
+                1,
+                drawRadius
+            ),
+            star.coreColor || "#ffffff",
+            star.color || "#fff4d6"
         );
 
-    if (isHypergiant) {
-        surfaceGradient.addColorStop(
-            0,
-            "#ffffff"
-        );
+    ctx.save();
 
-        surfaceGradient.addColorStop(
-            0.35,
-            "#bfeaff"
-        );
-
-        surfaceGradient.addColorStop(
-            0.75,
-            "#62bfff"
-        );
-
-        surfaceGradient.addColorStop(
-            1,
-            "#2479c9"
-        );
+    if (gradient) {
+        ctx.fillStyle = gradient;
     } else {
-        surfaceGradient.addColorStop(
-            0,
-            "#ffffff"
-        );
-
-        surfaceGradient.addColorStop(
-            0.35,
-            "#fff7c7"
-        );
-
-        surfaceGradient.addColorStop(
-            0.75,
-            "#ffd75c"
-        );
-
-        surfaceGradient.addColorStop(
-            1,
-            "#e87918"
-        );
+        ctx.fillStyle =
+            star.color || "#fff4d6";
     }
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x,
+        y,
+        drawRadius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    // Bright core.
+    const coreRadius =
+        Math.max(
+            0.5,
+            drawRadius * 0.3
+        );
+
+    ctx.fillStyle =
+        star.coreColor || "#ffffff";
+
+    ctx.globalAlpha = 0.8;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x - drawRadius * 0.2,
+        y - drawRadius * 0.2,
+        coreRadius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    // Small star flare.
+    ctx.globalAlpha = 0.35;
+
+    ctx.strokeStyle =
+        star.coreColor || "#ffffff";
+
+    ctx.lineWidth =
+        Math.max(
+            0.5,
+            drawRadius * 0.025
+        );
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        x - drawRadius * 1.5,
+        y
+    );
+
+    ctx.lineTo(
+        x + drawRadius * 1.5,
+        y
+    );
+
+    ctx.moveTo(
+        x,
+        y - drawRadius * 1.5
+    );
+
+    ctx.lineTo(
+        x,
+        y + drawRadius * 1.5
+    );
+
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+/* ---------------------------------------------------------
+   BLUE HYPERGIANT DRAW
+--------------------------------------------------------- */
+
+function drawBlueHypergiant(
+    ctx,
+    star,
+    scale = 1
+) {
+    if (!safeContext(ctx) || !star) {
+        return;
+    }
+
+    sanitizeStar(star);
+
+    const x = finite(star.x, 0);
+    const y = finite(star.y, 0);
+
+    const radius = positive(
+        star.radius,
+        70
+    );
+
+    const safeScale = clamp(
+        finite(scale, 1),
+        0.05,
+        100
+    );
+
+    const drawRadius =
+        radius * safeScale;
+
+    if (!Number.isFinite(drawRadius)) {
+        return;
+    }
+
+    drawGlow(
+        ctx,
+        star,
+        safeScale * 1.5
+    );
+
+    const gradient =
+        createSafeRadialGradient(
+            ctx,
+            x - drawRadius * 0.2,
+            y - drawRadius * 0.2,
+            Math.max(
+                0.1,
+                drawRadius * 0.05
+            ),
+            Math.max(
+                1,
+                drawRadius
+            ),
+            "#ffffff",
+            "#62b9ff"
+        );
 
     ctx.save();
 
     ctx.fillStyle =
-        surfaceGradient;
+        gradient || "#62b9ff";
 
     ctx.beginPath();
 
     ctx.arc(
-        screenX,
-        screenY,
-        radius,
+        x,
+        y,
+        drawRadius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    // Blue-white core.
+    ctx.fillStyle = "#ffffff";
+
+    ctx.globalAlpha = 0.75;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x - drawRadius * 0.22,
+        y - drawRadius * 0.22,
+        Math.max(
+            0.5,
+            drawRadius * 0.35
+        ),
         0,
         Math.PI * 2
     );
@@ -263,257 +652,141 @@ export function drawStar(
     ctx.fill();
 
     ctx.restore();
-
-    drawCorona(
-        ctx,
-        screenX,
-        screenY,
-        radius,
-        isHypergiant
-    );
 }
 
-function drawCorona(
+/* ---------------------------------------------------------
+   CONTACT BINARY DRAW
+--------------------------------------------------------- */
+
+function drawContactBinary(
     ctx,
-    x,
-    y,
-    radius,
-    hypergiant
+    binary,
+    scale = 1
 ) {
-    ctx.save();
+    if (!safeContext(ctx) || !binary) {
+        return;
+    }
 
-    ctx.globalAlpha = 0.28;
+    sanitizeStar(binary);
 
-    ctx.strokeStyle =
-        hypergiant
-            ? "#9bdcff"
-            : "#ffe89a";
+    const x = finite(binary.x, 0);
+    const y = finite(binary.y, 0);
 
-    ctx.lineWidth =
-        Math.max(1, radius * 0.035);
+    const radius = positive(
+        binary.radius,
+        45
+    );
 
-    for (let i = 1; i <= 3; i++) {
+    const safeScale = clamp(
+        finite(scale, 1),
+        0.05,
+        100
+    );
+
+    const starRadius =
+        Math.max(
+            0.5,
+            radius * 0.72 * safeScale
+        );
+
+    const separation =
+        starRadius * 0.9;
+
+    drawGlow(
+        ctx,
+        {
+            ...binary,
+            radius: radius * 1.3
+        },
+        safeScale
+    );
+
+    const angle =
+        finite(binary.orbitAngle, 0);
+
+    const ax =
+        x + Math.cos(angle) * separation;
+
+    const ay =
+        y + Math.sin(angle) * separation;
+
+    const bx =
+        x - Math.cos(angle) * separation;
+
+    const by =
+        y - Math.sin(angle) * separation;
+
+    const drawOneStar = (
+        sx,
+        sy,
+        color,
+        core
+    ) => {
+        if (!Number.isFinite(sx) ||
+            !Number.isFinite(sy)) {
+            return;
+        }
+
+        const gradient =
+            createSafeRadialGradient(
+                ctx,
+                sx - starRadius * 0.2,
+                sy - starRadius * 0.2,
+                Math.max(
+                    0.1,
+                    starRadius * 0.05
+                ),
+                starRadius,
+                core,
+                color
+            );
+
+        ctx.fillStyle =
+            gradient || color;
+
         ctx.beginPath();
 
         ctx.arc(
-            x,
-            y,
-            radius * (1 + i * 0.18),
+            sx,
+            sy,
+            starRadius,
             0,
             Math.PI * 2
         );
 
-        ctx.stroke();
-    }
-
-    ctx.restore();
-}
-
-export function createContactBinary(
-    x = 0,
-    y = 0,
-    options = {}
-) {
-    const separation =
-        options.separation || 55;
-
-    const primaryRadius =
-        options.primaryRadius || 50;
-
-    const secondaryRadius =
-        options.secondaryRadius || 42;
-
-    return {
-        type: "contact-binary",
-        name: "Contact Binary",
-
-        x,
-        y,
-
-        radius:
-            separation / 2 +
-            Math.max(
-                primaryRadius,
-                secondaryRadius
-            ),
-
-        mass:
-            (options.primaryMass || 5000) +
-            (options.secondaryMass || 4500),
-
-        velocity: {
-            x: options.velocityX || 0,
-            y: options.velocityY || 0
-        },
-
-        primary: {
-            x: -separation / 2,
-            y: 0,
-            radius: primaryRadius,
-            mass: options.primaryMass || 5000,
-            color: "#fff2ad"
-        },
-
-        secondary: {
-            x: separation / 2,
-            y: 0,
-            radius: secondaryRadius,
-            mass: options.secondaryMass || 4500,
-            color: "#ffbf6b"
-        },
-
-        separation,
-
-        rotation: 0,
-
-        angularSpeed:
-            options.angularSpeed || 0.012,
-
-        pulse: 0,
-
-        static:
-            options.static === true,
-
-        destroyed: false
+        ctx.fill();
     };
-}
-
-export function updateContactBinary(
-    binary,
-    deltaTime = 1
-) {
-    if (!binary || binary.destroyed) return;
-
-    binary.rotation =
-        (binary.rotation || 0) +
-        binary.angularSpeed *
-        deltaTime;
-
-    binary.pulse +=
-        0.02 * deltaTime;
-}
-
-export function drawContactBinary(
-    ctx,
-    binary,
-    camera = null
-) {
-    if (!ctx || !binary) return;
-
-    let centerX = binary.x;
-    let centerY = binary.y;
-    let scale = 1;
-
-    if (camera) {
-        const screen =
-            camera.worldToScreen(
-                binary.x,
-                binary.y
-            );
-
-        centerX = screen.x;
-        centerY = screen.y;
-
-        scale = camera.zoom || 1;
-    }
-
-    const angle =
-        binary.rotation || 0;
-
-    const distance =
-        binary.separation * 0.5 * scale;
-
-    const primaryX =
-        centerX +
-        Math.cos(angle) *
-        distance;
-
-    const primaryY =
-        centerY +
-        Math.sin(angle) *
-        distance;
-
-    const secondaryX =
-        centerX -
-        Math.cos(angle) *
-        distance;
-
-    const secondaryY =
-        centerY -
-        Math.sin(angle) *
-        distance;
-
-    drawGlow(
-        ctx,
-        centerX,
-        centerY,
-        Math.max(
-            binary.primary.radius,
-            binary.secondary.radius
-        ) * scale,
-        "rgba(255,190,80,0.7)",
-        1
-    );
-
-    drawBinaryStar(
-        ctx,
-        primaryX,
-        primaryY,
-        binary.primary.radius * scale,
-        binary.primary.color
-    );
-
-    drawBinaryStar(
-        ctx,
-        secondaryX,
-        secondaryY,
-        binary.secondary.radius * scale,
-        binary.secondary.color
-    );
-}
-
-function drawBinaryStar(
-    ctx,
-    x,
-    y,
-    radius,
-    color
-) {
-    const gradient =
-        ctx.createRadialGradient(
-            x - radius * 0.3,
-            y - radius * 0.3,
-            radius * 0.05,
-            x,
-            y,
-            radius
-        );
-
-    gradient.addColorStop(
-        0,
-        "#ffffff"
-    );
-
-    gradient.addColorStop(
-        0.4,
-        color
-    );
-
-    gradient.addColorStop(
-        1,
-        "#d86f18"
-    );
 
     ctx.save();
 
-    ctx.fillStyle = gradient;
+    drawOneStar(
+        ax,
+        ay,
+        binary.colorA || "#fff2c7",
+        binary.coreA || "#ffffff"
+    );
+
+    drawOneStar(
+        bx,
+        by,
+        binary.colorB || "#ffd27a",
+        binary.coreB || "#fff3c4"
+    );
+
+    // Contact bridge.
+    ctx.globalAlpha = 0.35;
+
+    ctx.fillStyle =
+        binary.colorA || "#fff2c7";
 
     ctx.beginPath();
 
-    ctx.arc(
+    ctx.ellipse(
         x,
         y,
-        radius,
+        starRadius * 1.1,
+        starRadius * 0.45,
+        angle,
         0,
         Math.PI * 2
     );
@@ -523,15 +796,17 @@ function drawBinaryStar(
     ctx.restore();
 }
 
-export function updateStarObject(
+/* ---------------------------------------------------------
+   GENERIC UPDATE
+--------------------------------------------------------- */
+
+function updateStarObject(
     object,
-    deltaTime = 1
+    deltaTime = 1 / 60
 ) {
     if (!object) return;
 
-    if (
-        object.type === "contact-binary"
-    ) {
+    if (object.type === "contact-binary") {
         updateContactBinary(
             object,
             deltaTime
@@ -546,20 +821,35 @@ export function updateStarObject(
     );
 }
 
-export function drawStarObject(
+/* ---------------------------------------------------------
+   GENERIC DRAW
+--------------------------------------------------------- */
+
+function drawStarObject(
     ctx,
     object,
-    camera = null
+    scale = 1
 ) {
     if (!object) return;
 
-    if (
-        object.type === "contact-binary"
-    ) {
+    if (object.type === "contact-binary") {
         drawContactBinary(
             ctx,
             object,
-            camera
+            scale
+        );
+
+        return;
+    }
+
+    if (
+        object.type === "blueHypergiant" ||
+        object.type === "blue-hypergiant"
+    ) {
+        drawBlueHypergiant(
+            ctx,
+            object,
+            scale
         );
 
         return;
@@ -568,6 +858,44 @@ export function drawStarObject(
     drawStar(
         ctx,
         object,
-        camera
+        scale
     );
 }
+
+/* ---------------------------------------------------------
+   EXPORTS
+--------------------------------------------------------- */
+
+export {
+    createStar,
+    createBlueHypergiant,
+    createContactBinary,
+
+    updateStar,
+    updateContactBinary,
+    updateStarObject,
+
+    drawStar,
+    drawBlueHypergiant,
+    drawContactBinary,
+    drawStarObject,
+
+    sanitizeStar
+};
+
+export default {
+    createStar,
+    createBlueHypergiant,
+    createContactBinary,
+
+    updateStar,
+    updateContactBinary,
+    updateStarObject,
+
+    drawStar,
+    drawBlueHypergiant,
+    drawContactBinary,
+    drawStarObject,
+
+    sanitizeStar
+};
