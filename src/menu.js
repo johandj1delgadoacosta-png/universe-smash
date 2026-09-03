@@ -1,301 +1,304 @@
 // =========================================
 // UNIVERSE SMASH
-// MENU CONTROLLER
+// MAIN MENU SYSTEM
 // =========================================
 
-import { showScreen, gameState } from "./main.js";
+
+// -----------------------------------------
+// SHOW MAIN MENU
+// -----------------------------------------
+
+export function showMainMenu(onSelectMode) {
+
+  const menu =
+    document.getElementById("main-menu");
 
 
-export function setupMenu() {
+  if (!menu) {
 
-  console.log("📋 Setting up Universe Smash menu...");
+    console.warn(
+      "Main menu element not found."
+    );
 
-
-  // =========================================
-  // TITLE SCREEN BUTTONS
-  // =========================================
-
-  const pressStartButton =
-    document.getElementById("pressStartButton");
-
-  const titleSettingsButton =
-    document.getElementById("titleSettingsButton");
-
-
-  if (pressStartButton) {
-
-    pressStartButton.addEventListener("click", () => {
-
-      console.log("▶ Press Start!");
-
-      showScreen("mainMenu");
-
-    });
+    return;
 
   }
 
 
-  if (titleSettingsButton) {
-
-    titleSettingsButton.addEventListener("click", () => {
-
-      console.log("⚙ Opening settings...");
-
-      showScreen("settingsScreen");
-
-    });
-
-  }
+  menu.style.display = "flex";
 
 
-  // =========================================
-  // MAIN MENU BUTTONS
-  // =========================================
+  menu.innerHTML = `
 
-  const planetModeButton =
-    document.getElementById("planetModeButton");
+    <div class="menu-content">
 
-  const solarSystemButton =
-    document.getElementById("solarSystemButton");
-
-  const settingsButton =
-    document.getElementById("settingsButton");
+      <h1 class="menu-title">
+        🌌 UNIVERSE SMASH
+      </h1>
 
 
-  // -----------------------------------------
+      <p class="menu-subtitle">
+        Choose Your Simulation
+      </p>
+
+
+      <div class="mode-buttons">
+
+        <button
+          id="planet-mode-button"
+          class="mode-button"
+        >
+
+          <span class="mode-icon">
+            🌍
+          </span>
+
+          <span class="mode-name">
+            PLANET MODE
+          </span>
+
+          <span class="mode-description">
+            Destroy and experiment with a single planet
+          </span>
+
+        </button>
+
+
+        <button
+          id="solar-system-button"
+          class="mode-button"
+        >
+
+          <span class="mode-icon">
+            ☀️
+          </span>
+
+          <span class="mode-name">
+            SOLAR SYSTEM MODE
+          </span>
+
+          <span class="mode-description">
+            Create and simulate an entire star system
+          </span>
+
+        </button>
+
+      </div>
+
+
+      <button
+        id="settings-button"
+        class="settings-button"
+      >
+        ⚙️ SETTINGS
+      </button>
+
+    </div>
+
+  `;
+
+
+  // ---------------------------------------
   // PLANET MODE
-  // -----------------------------------------
+  // ---------------------------------------
 
-  if (planetModeButton) {
+  document
+    .getElementById("planet-mode-button")
+    .addEventListener(
+      "click",
 
-    planetModeButton.addEventListener("click", () => {
+      () => {
 
-      console.log("🪐 Entering Planet Mode...");
+        selectMode(
+          "planet",
+          menu,
+          onSelectMode
+        );
 
-      gameState.currentMode = "planet";
+      }
 
-      showScreen("planetModeScreen");
-
-      document.dispatchEvent(
-        new CustomEvent("universeSmashPlanetModeStart")
-      );
-
-    });
-
-  }
+    );
 
 
-  // -----------------------------------------
+  // ---------------------------------------
   // SOLAR SYSTEM MODE
-  // -----------------------------------------
+  // ---------------------------------------
 
-  if (solarSystemButton) {
+  document
+    .getElementById("solar-system-button")
+    .addEventListener(
+      "click",
 
-    solarSystemButton.addEventListener("click", () => {
+      () => {
 
-      console.log("☀️ Entering Solar System Mode...");
+        selectMode(
+          "solar-system",
+          menu,
+          onSelectMode
+        );
 
-      gameState.currentMode = "solar-system";
+      }
 
-      gameState.solarSystem.running = true;
-
-      showScreen("solarSystemScreen");
-
-      document.dispatchEvent(
-        new CustomEvent("universeSmashSolarSystemStart")
-      );
-
-    });
-
-  }
+    );
 
 
-  // -----------------------------------------
+  // ---------------------------------------
   // SETTINGS
-  // -----------------------------------------
+  // ---------------------------------------
 
-  if (settingsButton) {
+  document
+    .getElementById("settings-button")
+    .addEventListener(
+      "click",
 
-    settingsButton.addEventListener("click", () => {
+      () => {
 
-      console.log("⚙ Opening settings...");
+        showSettings();
 
-      showScreen("settingsScreen");
+      }
 
-    });
-
-  }
-
-
-  // =========================================
-  // SETTINGS BACK BUTTON
-  // =========================================
-
-  const settingsScreen =
-    document.getElementById("settingsScreen");
-
-  if (settingsScreen) {
-
-    const backButton =
-      settingsScreen.querySelector(".backButton");
-
-    if (backButton) {
-
-      backButton.addEventListener("click", () => {
-
-        showScreen("mainMenu");
-
-      });
-
-    }
-
-  }
-
-
-  // =========================================
-  // SETTINGS CONTROLS
-  // =========================================
-
-  setupSettings();
+    );
 
 }
 
 
-// =========================================
-// SETTINGS SYSTEM
-// =========================================
+// -----------------------------------------
+// SELECT MODE
+// -----------------------------------------
 
-function setupSettings() {
+function selectMode(
+  mode,
+  menu,
+  callback
+) {
 
-  const graphicsQuality =
-    document.getElementById("graphicsQuality");
-
-  const effectsQuality =
-    document.getElementById("effectsQuality");
-
-  const musicVolume =
-    document.getElementById("musicVolume");
-
-  const soundVolume =
-    document.getElementById("soundVolume");
+  menu.style.opacity = "0";
 
 
-  if (graphicsQuality) {
+  setTimeout(
+    () => {
 
-    graphicsQuality.addEventListener("change", () => {
-
-      console.log(
-        "Graphics Quality:",
-        graphicsQuality.value
-      );
-
-      localStorage.setItem(
-        "universeSmashGraphics",
-        graphicsQuality.value
-      );
-
-    });
-
-  }
+      menu.style.display =
+        "none";
 
 
-  if (effectsQuality) {
+      if (callback) {
 
-    effectsQuality.addEventListener("change", () => {
+        callback(mode);
 
-      console.log(
-        "Effects Quality:",
-        effectsQuality.value
-      );
+      }
 
-      localStorage.setItem(
-        "universeSmashEffects",
-        effectsQuality.value
-      );
-
-    });
-
-  }
-
-
-  if (musicVolume) {
-
-    musicVolume.addEventListener("input", () => {
-
-      localStorage.setItem(
-        "universeSmashMusicVolume",
-        musicVolume.value
-      );
-
-    });
-
-  }
-
-
-  if (soundVolume) {
-
-    soundVolume.addEventListener("input", () => {
-
-      localStorage.setItem(
-        "universeSmashSoundVolume",
-        soundVolume.value
-      );
-
-    });
-
-  }
-
-
-  // Load previously saved settings
-
-  loadSavedSettings(
-    graphicsQuality,
-    effectsQuality,
-    musicVolume,
-    soundVolume
+    },
+    300
   );
 
 }
 
 
-// =========================================
-// LOAD SAVED SETTINGS
-// =========================================
+// -----------------------------------------
+// HIDE MENU
+// -----------------------------------------
 
-function loadSavedSettings(
-  graphicsQuality,
-  effectsQuality,
-  musicVolume,
-  soundVolume
-) {
+export function hideMainMenu() {
 
-  const savedGraphics =
-    localStorage.getItem("universeSmashGraphics");
-
-  const savedEffects =
-    localStorage.getItem("universeSmashEffects");
-
-  const savedMusic =
-    localStorage.getItem("universeSmashMusicVolume");
-
-  const savedSound =
-    localStorage.getItem("universeSmashSoundVolume");
+  const menu =
+    document.getElementById("main-menu");
 
 
-  if (savedGraphics && graphicsQuality) {
-    graphicsQuality.value = savedGraphics;
-  }
+  if (!menu) return;
 
-  if (savedEffects && effectsQuality) {
-    effectsQuality.value = savedEffects;
-  }
 
-  if (savedMusic && musicVolume) {
-    musicVolume.value = savedMusic;
-  }
+  menu.style.display =
+    "none";
 
-  if (savedSound && soundVolume) {
-    soundVolume.value = savedSound;
-  }
+}
+
+
+// -----------------------------------------
+// SETTINGS MENU
+// -----------------------------------------
+
+export function showSettings() {
+
+  const menu =
+    document.getElementById("main-menu");
+
+
+  if (!menu) return;
+
+
+  const settings =
+    document.createElement("div");
+
+
+  settings.className =
+    "settings-panel";
+
+
+  settings.innerHTML = `
+
+    <h2>
+      ⚙️ SETTINGS
+    </h2>
+
+
+    <label>
+
+      Music Volume
+
+      <input
+        id="music-volume"
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        value="0.35"
+      >
+
+    </label>
+
+
+    <label>
+
+      Sound Volume
+
+      <input
+        id="sound-volume"
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        value="0.7"
+      >
+
+    </label>
+
+
+    <button
+      id="close-settings"
+    >
+      CLOSE
+    </button>
+
+  `;
+
+
+  menu.appendChild(
+    settings
+  );
+
+
+  document
+    .getElementById("close-settings")
+    .addEventListener(
+      "click",
+
+      () => {
+
+        settings.remove();
+
+      }
+
+    );
 
 }
