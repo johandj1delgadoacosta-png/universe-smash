@@ -1,633 +1,270 @@
-// Universe Smash
-// Startup / Loading Sequence
+// Universe Smash - Startup System
 
 let startupFinished = false;
 let startupSkipped = false;
 
-const STARTUP_TIMINGS = {
-    splash: 1400,
-    warning: 2200,
-    loading: 2600,
-    title: 1600
-};
-
-function getElement(id) {
+function get(id) {
     return document.getElementById(id);
 }
 
-function sleep(ms) {
-    return new Promise(resolve => {
-        setTimeout(resolve, ms);
-    });
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function showElement(element) {
-    if (!element) {
-        return;
-    }
-
-    element.hidden = false;
-    element.style.display = "";
-    element.classList.remove("hidden");
+function show(id, display = "block") {
+    const el = get(id);
+    if (el) el.style.display = display;
 }
 
-function hideElement(element) {
-    if (!element) {
-        return;
-    }
-
-    element.hidden = true;
-    element.style.display = "none";
+function hide(id) {
+    const el = get(id);
+    if (el) el.style.display = "none";
 }
 
 function setText(id, text) {
-    const element = getElement(id);
-
-    if (element) {
-        element.textContent = text;
-    }
+    const el = get(id);
+    if (el) el.textContent = text;
 }
 
 function setProgress(percent) {
-    const value =
-        Math.max(
-            0,
-            Math.min(
-                100,
-                percent
-            )
-        );
+    const bar = get("loading-progress");
+    const text = get("loading-percent");
 
-    const bar =
-        getElement("loading-bar");
-
-    const progress =
-        getElement("loading-progress");
-
-    const text =
-        getElement("loading-percent");
-
-    if (bar) {
-        bar.style.width = `${value}%`;
-    }
-
-    if (progress) {
-        progress.value = value;
-    }
-
-    if (text) {
-        text.textContent =
-            `${Math.round(value)}%`;
-    }
+    if (bar) bar.style.width = `${percent}%`;
+    if (text) text.textContent = `${Math.round(percent)}%`;
 }
 
-function setStartupStatus(text) {
-    setText(
-        "startup-status",
-        text
-    );
-
-    setText(
-        "loading-status",
-        text
-    );
-}
-
-function getStartupScreen() {
-    return getElement("startup-screen");
-}
-
-function showStartupScreen() {
-    const screen =
-        getStartupScreen();
-
-    if (!screen) {
-        return;
-    }
-
-    showElement(screen);
-
-    screen.classList.remove(
-        "startup-hidden",
-        "fade-out"
-    );
-
-    screen.classList.add(
-        "startup-visible"
-    );
-}
-
-function hideStartupScreen() {
-    const screen =
-        getStartupScreen();
-
-    if (!screen) {
-        return;
-    }
-
-    screen.classList.remove(
-        "startup-visible"
-    );
-
-    screen.classList.add(
-        "fade-out"
-    );
-
-    setTimeout(() => {
-        hideElement(screen);
-
-        screen.classList.remove(
-            "fade-out"
-        );
-    }, 500);
-}
-
-function showStartupSection(
-    sectionId
-) {
-    const sections = [
-        "startup-logo",
-        "startup-warning",
-        "startup-loading",
-        "startup-title"
-    ];
-
-    for (const id of sections) {
-        const section =
-            getElement(id);
-
-        if (!section) {
-            continue;
-        }
-
-        if (id === sectionId) {
-            showElement(section);
-
-            section.classList.remove(
-                "startup-section-hidden"
-            );
-
-            section.classList.add(
-                "startup-section-visible"
-            );
-        } else {
-            hideElement(section);
-
-            section.classList.remove(
-                "startup-section-visible"
-            );
-
-            section.classList.add(
-                "startup-section-hidden"
-            );
-        }
-    }
-}
-
-function prepareStartupScreen() {
-    showStartupScreen();
-
-    const screen =
-        getStartupScreen();
-
-    if (!screen) {
-        return;
-    }
-
-    showStartupSection(
-        "startup-logo"
-    );
-
-    setProgress(0);
-
-    setStartupStatus(
-        "INITIALIZING..."
-    );
-}
-
-async function runSplash() {
-    if (startupSkipped) {
-        return;
-    }
-
-    showStartupSection(
-        "startup-logo"
-    );
-
-    setStartupStatus(
-        "UNIVERSE SMASH ENGINE"
-    );
-
-    await sleep(
-        STARTUP_TIMINGS.splash
-    );
-}
-
-async function runWarning() {
-    if (startupSkipped) {
-        return;
-    }
-
-    showStartupSection(
-        "startup-warning"
-    );
-
-    setStartupStatus(
-        "PLEASE READ"
-    );
-
-    await sleep(
-        STARTUP_TIMINGS.warning
-    );
-}
-
-async function runLoading() {
-    if (startupSkipped) {
-        return;
-    }
-
-    showStartupSection(
-        "startup-loading"
-    );
-
-    const steps = [
-        {
-            percent: 10,
-            text: "Starting engine..."
-        },
-        {
-            percent: 25,
-            text: "Loading physics..."
-        },
-        {
-            percent: 40,
-            text: "Loading celestial bodies..."
-        },
-        {
-            percent: 55,
-            text: "Loading particle system..."
-        },
-        {
-            percent: 70,
-            text: "Loading audio..."
-        },
-        {
-            percent: 82,
-            text: "Loading game modes..."
-        },
-        {
-            percent: 94,
-            text: "Preparing Universe Smash..."
-        },
-        {
-            percent: 100,
-            text: "READY"
-        }
-    ];
-
-    const delay =
-        STARTUP_TIMINGS.loading /
-        steps.length;
-
-    for (const step of steps) {
-        if (startupSkipped) {
-            return;
-        }
-
-        setProgress(
-            step.percent
-        );
-
-        setStartupStatus(
-            step.text
-        );
-
-        await sleep(delay);
-    }
-}
-
-async function runTitle() {
-    if (startupSkipped) {
-        return;
-    }
-
-    showStartupSection(
-        "startup-title"
-    );
-
-    setStartupStatus(
-        "PRESS START"
-    );
-
-    await sleep(
-        STARTUP_TIMINGS.title
-    );
-}
-
-function enableStartButton() {
-    const button =
-        getElement("start-button");
+function createStartButton() {
+    let button = get("start-button");
 
     if (!button) {
-        return;
+        button = document.createElement("button");
+        button.id = "start-button";
+        button.textContent = "PRESS START";
+
+        button.style.position = "absolute";
+        button.style.left = "50%";
+        button.style.top = "65%";
+        button.style.transform = "translate(-50%, -50%)";
+        button.style.zIndex = "10000";
+        button.style.padding = "18px 45px";
+        button.style.fontSize = "24px";
+        button.style.fontWeight = "bold";
+        button.style.letterSpacing = "4px";
+        button.style.cursor = "pointer";
+        button.style.background = "#111";
+        button.style.color = "#fff";
+        button.style.border = "2px solid #fff";
+        button.style.borderRadius = "6px";
+
+        const screen = get("startup-screen");
+
+        if (screen) {
+            screen.appendChild(button);
+        } else {
+            document.body.appendChild(button);
+        }
     }
 
-    button.disabled = false;
-
-    button.classList.add(
-        "ready"
-    );
-}
-
-function createFallbackStartButton() {
-    const screen =
-        getStartupScreen();
-
-    if (!screen) {
-        return null;
-    }
-
-    let button =
-        getElement("start-button");
-
-    if (button) {
-        return button;
-    }
-
-    button =
-        document.createElement(
-            "button"
-        );
-
-    button.id =
-        "start-button";
-
-    button.type =
-        "button";
-
-    button.textContent =
-        "PRESS START";
-
-    button.className =
-        "startup-start-button";
-
-    const title =
-        getElement("startup-title");
-
-    if (title) {
-        title.appendChild(button);
-    } else {
-        screen.appendChild(button);
-    }
+    button.style.display = "block";
 
     return button;
 }
 
-function attachStartButton() {
-    let button =
-        getElement("start-button");
-
-    if (!button) {
-        button =
-            createFallbackStartButton();
-    }
-
-    if (!button) {
-        return;
-    }
-
-    if (
-        button.dataset.startupBound ===
-        "true"
-    ) {
-        return;
-    }
-
-    button.dataset.startupBound =
-        "true";
-
-    button.disabled = true;
-
-    button.addEventListener(
-        "click",
-        () => {
-            finishStartup();
-        }
-    );
-
-    button.addEventListener(
-        "keydown",
-        event => {
-            if (
-                event.key ===
-                "Enter" ||
-                event.key ===
-                " "
-            ) {
-                event.preventDefault();
-
-                finishStartup();
-            }
-        }
-    );
-}
-
-function attachSkipControls() {
-    if (
-        document.body.dataset
-            .startupSkipBound ===
-        "true"
-    ) {
-        return;
-    }
-
-    document.body.dataset
-        .startupSkipBound =
-        "true";
-
-    document.addEventListener(
-        "keydown",
-        event => {
-            if (
-                event.key ===
-                "Escape"
-            ) {
-                skipStartup();
-            }
-        }
-    );
-
-    const skipButton =
-        getElement(
-            "skip-startup"
-        );
-
-    if (skipButton) {
-        skipButton.addEventListener(
-            "click",
-            () => {
-                skipStartup();
-            }
-        );
-    }
-}
-
-export function finishStartup() {
-    if (startupFinished) {
-        return;
-    }
+function finishStartup() {
+    if (startupFinished) return;
 
     startupFinished = true;
-    startupSkipped = true;
 
-    setProgress(100);
+    const screen = get("startup-screen");
 
-    hideStartupScreen();
+    if (screen) {
+        screen.style.opacity = "0";
+        screen.style.pointerEvents = "none";
 
-    document.body.classList.remove(
-        "startup-active"
-    );
+        setTimeout(() => {
+            screen.style.display = "none";
+        }, 500);
+    }
 
-    document.body.classList.add(
-        "game-ready"
-    );
-
-    const startEvent =
-        new CustomEvent(
-            "universe-smash-start"
-        );
+    const button = get("start-button");
+    if (button) {
+        button.style.display = "none";
+    }
 
     window.dispatchEvent(
-        startEvent
+        new CustomEvent("universe-smash-startup-finished")
     );
 }
 
-export function skipStartup() {
-    if (startupFinished) {
-        return;
-    }
-
+function skipStartup() {
     startupSkipped = true;
-
     finishStartup();
 }
 
-export function isStartupFinished() {
-    return startupFinished;
-}
-
-export function isStartupSkipped() {
-    return startupSkipped;
-}
-
-export async function runStartup() {
-    if (startupFinished) {
-        return true;
-    }
-
-    startupSkipped = false;
-
-    prepareStartupScreen();
-
-    attachStartButton();
-    attachSkipControls();
-
-    document.body.classList.add(
-        "startup-active"
-    );
-
-    await runSplash();
-
-    if (startupSkipped) {
-        finishStartup();
-
-        return true;
-    }
-
-    await runWarning();
-
-    if (startupSkipped) {
-        finishStartup();
-
-        return true;
-    }
-
-    await runLoading();
-
-    if (startupSkipped) {
-        finishStartup();
-
-        return true;
-    }
-
-    await runTitle();
-
-    if (startupSkipped) {
-        finishStartup();
-
-        return true;
-    }
-
-    enableStartButton();
-
-    // Automatically finish if there
-    // is no start button in the HTML.
-    const startButton =
-        getElement("start-button");
-
-    if (!startButton) {
-        await sleep(500);
-
-        finishStartup();
-    }
-
-    return true;
-}
-
-export function resetStartup() {
+async function runStartup() {
     startupFinished = false;
     startupSkipped = false;
 
-    const screen =
-        getStartupScreen();
+    const screen = get("startup-screen");
 
     if (screen) {
-        showStartupScreen();
+        screen.style.display = "flex";
+        screen.style.opacity = "1";
+        screen.style.pointerEvents = "auto";
     }
 
+    // Hide everything initially
+    hide("startup-warning");
+    hide("startup-loading");
+    hide("startup-title");
+
+    // Developer / engine logo
+    const logo = get("startup-logo");
+
+    if (logo) {
+        logo.style.display = "block";
+        setText("startup-status", "INITIALIZING COSMIC ENGINE...");
+    }
+
+    await wait(1200);
+
+    if (startupSkipped) return true;
+
+    // Warning
+    hide("startup-logo");
+    show("startup-warning");
+
+    setText(
+        "startup-status",
+        "UNIVERSE SMASH CONTAINS FLASHING VISUAL EFFECTS."
+    );
+
+    await wait(1800);
+
+    if (startupSkipped) return true;
+
+    // Loading
+    hide("startup-warning");
+    show("startup-loading");
+
+    setText("loading-status", "LOADING UNIVERSE...");
     setProgress(0);
 
-    setStartupStatus(
-        "INITIALIZING..."
-    );
+    for (let i = 0; i <= 100; i += 5) {
+        if (startupSkipped) return true;
 
-    document.body.classList.add(
-        "startup-active"
-    );
+        setProgress(i);
 
-    document.body.classList.remove(
-        "game-ready"
-    );
+        if (i < 30) {
+            setText("loading-status", "INITIALIZING PHYSICS...");
+        } else if (i < 60) {
+            setText("loading-status", "LOADING CELESTIAL OBJECTS...");
+        } else if (i < 85) {
+            setText("loading-status", "INITIALIZING COSMIC ENGINE...");
+        } else {
+            setText("loading-status", "FINALIZING...");
+        }
 
-    const button =
-        getElement("start-button");
+        await wait(40);
+    }
 
-    if (button) {
-        button.disabled = true;
+    await wait(500);
 
-        button.classList.remove(
-            "ready"
+    if (startupSkipped) return true;
+
+    // Title screen
+    hide("startup-loading");
+    show("startup-title");
+
+    setText("startup-status", "COSMIC SIMULATION ENGINE");
+
+    await wait(1200);
+
+    if (startupSkipped) return true;
+
+    // Create guaranteed Press Start button
+    const startButton = createStartButton();
+
+    setText("startup-status", "READY");
+
+    // Wait for the player to press Start
+    return new Promise(resolve => {
+        let finished = false;
+
+        const complete = () => {
+            if (finished) return;
+
+            finished = true;
+
+            startButton.removeEventListener("click", complete);
+
+            finishStartup();
+
+            resolve(true);
+        };
+
+        startButton.addEventListener("click", complete);
+
+        // Also allow Enter or Space
+        const keyboardStart = event => {
+            if (
+                event.key === "Enter" ||
+                event.key === " "
+            ) {
+                event.preventDefault();
+
+                document.removeEventListener(
+                    "keydown",
+                    keyboardStart
+                );
+
+                complete();
+            }
+        };
+
+        document.addEventListener(
+            "keydown",
+            keyboardStart
         );
+    });
+}
+
+function isStartupFinished() {
+    return startupFinished;
+}
+
+function isStartupSkipped() {
+    return startupSkipped;
+}
+
+function resetStartup() {
+    startupFinished = false;
+    startupSkipped = false;
+
+    const screen = get("startup-screen");
+
+    if (screen) {
+        screen.style.display = "flex";
+        screen.style.opacity = "1";
+        screen.style.pointerEvents = "auto";
     }
 }
 
-// Make startup controls available
-// globally for buttons or debugging.
+export {
+    runStartup,
+    skipStartup,
+    finishStartup,
+    isStartupFinished,
+    isStartupSkipped,
+    resetStartup
+};
+
 window.UniverseSmashStartup = {
     runStartup,
-    finishStartup,
     skipStartup,
-    resetStartup,
+    finishStartup,
     isStartupFinished,
-    isStartupSkipped
+    isStartupSkipped,
+    resetStartup
 };
