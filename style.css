@@ -1,7 +1,7 @@
 /* =========================================
    UNIVERSE SMASH
-   MAIN STYLESHEET
-========================================= */
+   MAIN GAME STYLES
+   ========================================= */
 
 * {
   box-sizing: border-box;
@@ -10,730 +10,632 @@
 html,
 body {
   margin: 0;
+  padding: 0;
+
   width: 100%;
   height: 100%;
+
   overflow: hidden;
+
   background: #02030a;
+
   color: white;
-  font-family: Arial, Helvetica, sans-serif;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
 }
 
-button,
-select,
-input {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-#game {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-
-  background:
-    radial-gradient(circle at 50% 45%, #111b38 0%, #060914 35%, #010207 75%);
-
-  isolation: isolate;
-}
-
-/* Star background */
-
-#game::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  opacity: 0.8;
-
-  background-image:
-    radial-gradient(white 1px, transparent 1px),
-    radial-gradient(#9bb7ff 1px, transparent 1px),
-    radial-gradient(#ffffff 1px, transparent 1px);
-
-  background-size:
-    70px 70px,
-    130px 130px,
-    220px 220px;
-
-  background-position:
-    10px 20px,
-    40px 70px,
-    100px 120px;
-}
 
 /* =========================================
-   GENERAL SCREENS
-========================================= */
+   GAME CANVAS
+   ========================================= */
 
-.screen,
-.gameScreen {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+#game-canvas {
+  position: fixed;
+
+  top: 0;
+  left: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  display: block;
+
+  background: #02030a;
+
+  cursor: crosshair;
 }
 
-.hidden {
-  display: none !important;
-}
-
-.active {
-  display: flex;
-}
 
 /* =========================================
    STARTUP SCREEN
-========================================= */
+   ========================================= */
 
-#startupScreen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+#startup-screen {
+  position: fixed;
 
-  background:
-    radial-gradient(circle, #101b36 0%, #03050d 50%, #000 100%);
-}
+  inset: 0;
 
-.startupPanel {
-  width: min(700px, 90vw);
-  text-align: center;
-  animation: fadeIn 1s ease;
-}
-
-.logoStar {
-  font-size: 100px;
-  margin-bottom: 20px;
-  animation: pulse 2s infinite ease-in-out;
-}
-
-.startupPanel h1 {
-  margin: 10px 0;
-  letter-spacing: 7px;
-  font-size: clamp(25px, 5vw, 55px);
-}
-
-.startupPanel p {
-  color: #9fb5df;
-  font-size: 18px;
-  letter-spacing: 4px;
-  line-height: 1.7;
-}
-
-.smallTitle {
-  font-size: 14px !important;
-  color: #7485a8 !important;
-}
-
-#warningContinueButton,
-#pressStartButton,
-.secondaryButton {
-  border: 1px solid #6f9fff;
-  border-radius: 8px;
-  background: rgba(30, 70, 150, 0.2);
-  color: white;
-
-  padding: 15px 35px;
-  margin-top: 25px;
-
-  transition: 0.2s;
-}
-
-#warningContinueButton:hover,
-#pressStartButton:hover,
-.secondaryButton:hover {
-  background: rgba(70, 120, 255, 0.4);
-  transform: scale(1.04);
-}
-
-/* Loading */
-
-.loadingItem {
-  margin: 20px 0;
-  text-align: left;
-}
-
-.loadingItem span {
-  display: block;
-  margin-bottom: 7px;
-  font-size: 13px;
-  letter-spacing: 2px;
-}
-
-.progressBar {
-  width: 100%;
-  height: 14px;
-  overflow: hidden;
-
-  background: #111827;
-  border: 1px solid #304b78;
-  border-radius: 10px;
-}
-
-.progressFill {
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-
-  background: linear-gradient(
-    90deg,
-    #4c72ff,
-    #65d9ff,
-    #ffffff
-  );
-
-  transition: width 0.5s ease;
-}
-
-#loadingText {
-  margin-top: 30px;
-  animation: blink 1s infinite;
-}
-
-/* =========================================
-   TITLE SCREEN
-========================================= */
-
-#titleScreen {
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.titleContent {
-  padding: 50px;
-  animation: fadeIn 1.5s ease;
-}
-
-.titleStar {
-  font-size: 80px;
-  animation: pulse 2.5s infinite ease-in-out;
-}
-
-.gameTitle {
-  margin: 10px 0 30px;
-
-  font-size: clamp(55px, 10vw, 130px);
-  letter-spacing: 15px;
-
-  text-shadow:
-    0 0 20px #5d8cff,
-    0 0 60px #1c3bff;
-}
-
-.gameTitle span {
-  display: block;
-  font-size: 0.55em;
-  letter-spacing: 25px;
-  color: #9bbcff;
-}
-
-#pressStartButton {
-  display: block;
-  margin: 30px auto 15px;
-
-  font-size: 18px;
-  letter-spacing: 3px;
-
-  animation: blinkSoft 1.7s infinite;
-}
-
-.secondaryButton {
-  padding: 10px 25px;
-  margin-top: 5px;
-}
-
-/* =========================================
-   MAIN MENU
-========================================= */
-
-#mainMenu {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.menuPanel {
-  width: min(600px, 90vw);
-
-  padding: 40px;
-
-  border: 1px solid rgba(110, 160, 255, 0.3);
-  border-radius: 20px;
-
-  background: rgba(5, 10, 25, 0.85);
-  backdrop-filter: blur(12px);
-
-  box-shadow:
-    0 0 60px rgba(20, 60, 180, 0.2);
-}
-
-.menuPanel h1 {
-  text-align: center;
-  letter-spacing: 8px;
-  margin-bottom: 35px;
-}
-
-.menuButton {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-
-  margin: 15px 0;
-  padding: 20px;
-
-  color: white;
-  text-align: left;
-
-  border: 1px solid rgba(100, 150, 255, 0.3);
-  border-radius: 12px;
-
-  background: rgba(20, 35, 70, 0.6);
-
-  transition:
-    transform 0.2s,
-    background 0.2s,
-    border 0.2s;
-}
-
-.menuButton:hover {
-  transform: translateX(8px);
-
-  background: rgba(45, 80, 160, 0.6);
-
-  border-color: #7aa8ff;
-}
-
-.menuButton > :first-child {
-  font-size: 35px;
-}
-
-.menuButton span {
-  display: flex;
-  flex-direction: column;
-}
-
-.menuButton strong {
-  font-size: 18px;
-  letter-spacing: 2px;
-}
-
-.menuButton small {
-  margin-top: 5px;
-  color: #9eaec9;
-}
-
-/* =========================================
-   GAME SCREENS
-========================================= */
-
-.gameScreen {
-  display: grid;
-
-  grid-template-columns: 250px 1fr 270px;
-  grid-template-rows: 65px 1fr;
-
-  background: #030711;
-}
-
-.topBar {
-  grid-column: 1 / 4;
+  z-index: 1000;
 
   display: flex;
-  align-items: center;
-  justify-content: space-between;
 
-  padding: 0 20px;
-
-  background: rgba(7, 14, 30, 0.95);
-  border-bottom: 1px solid #20355e;
-}
-
-.topBar h2 {
-  letter-spacing: 3px;
-}
-
-.topStatus {
-  color: #7ba5ff;
-  font-size: 12px;
-  letter-spacing: 2px;
-}
-
-/* Panels */
-
-.leftPanel,
-.rightPanel {
-  padding: 20px;
-
-  background: rgba(7, 13, 28, 0.97);
-}
-
-.leftPanel {
-  border-right: 1px solid #1d3156;
-}
-
-.rightPanel {
-  border-left: 1px solid #1d3156;
-}
-
-.leftPanel h3,
-.rightPanel h3 {
-  margin-top: 5px;
-
-  color: #9fc1ff;
-
-  font-size: 14px;
-  letter-spacing: 2px;
-}
-
-/* Tool buttons */
-
-.toolButton {
-  width: 100%;
-  margin: 7px 0;
-  padding: 13px;
-
-  text-align: left;
-
-  color: #eaf1ff;
-
-  border: 1px solid #263e6b;
-  border-radius: 8px;
-
-  background: rgba(18, 32, 65, 0.8);
-
-  transition: 0.2s;
-}
-
-.toolButton:hover {
-  background: rgba(50, 85, 160, 0.7);
-  border-color: #77aaff;
-
-  transform: translateX(3px);
-}
-
-.mysteryButton {
-  border-color: #925cff;
-
-  background:
-    linear-gradient(
-      90deg,
-      rgba(70, 30, 120, 0.8),
-      rgba(30, 50, 130, 0.8)
-    );
-}
-
-.mysteryButton:hover {
-  box-shadow:
-    0 0 20px rgba(150, 80, 255, 0.7);
-}
-
-/* =========================================
-   SIMULATION CANVAS
-========================================= */
-
-.simulationCanvas {
-  position: relative;
-
-  min-width: 0;
-  overflow: hidden;
-
-  display: flex;
   align-items: center;
   justify-content: center;
 
   background:
     radial-gradient(
       circle at center,
-      rgba(30, 55, 110, 0.3),
-      rgba(2, 5, 12, 0.9) 70%
+      #111b3d 0%,
+      #050816 45%,
+      #000000 100%
     );
-}
 
-.simulationLabel {
-  padding: 15px 25px;
+  opacity: 1;
 
-  color: #8da4cc;
+  transition:
+    opacity 0.7s ease;
 
-  border: 1px solid rgba(100, 140, 220, 0.3);
-  border-radius: 10px;
-
-  background: rgba(0, 0, 0, 0.35);
-
-  font-size: 13px;
-  letter-spacing: 3px;
-
-  pointer-events: none;
-}
-
-/* Three.js canvas */
-
-.simulationCanvas canvas,
-#gameCanvas canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-/* =========================================
-   INFORMATION PANEL
-========================================= */
-
-.infoRow {
-  display: flex;
-  justify-content: space-between;
-
-  padding: 10px 0;
-
-  font-size: 13px;
-}
-
-.infoRow span {
-  color: #8494b4;
-}
-
-.infoRow strong {
-  color: #dce8ff;
-}
-
-.rightPanel hr {
-  border: 0;
-  border-top: 1px solid #203456;
-  margin: 20px 0;
-}
-
-/* Health */
-
-.healthBar {
-  width: 100%;
-  height: 14px;
-
-  overflow: hidden;
-
-  border-radius: 10px;
-
-  background: #181d2b;
-}
-
-#healthFill {
-  width: 100%;
-  height: 100%;
-
-  background: linear-gradient(
-    90deg,
-    #42d675,
-    #b7ff76
-  );
-
-  transition: width 0.4s;
-}
-
-/* Camera */
-
-.cameraButton {
-  width: 100%;
-
-  margin: 7px 0;
-  padding: 11px;
-
-  color: white;
-
-  border: 1px solid #2d4677;
-  border-radius: 7px;
-
-  background: #132345;
-}
-
-.cameraButton:hover {
-  background: #24427d;
-}
-
-/* Back button */
-
-.backButton {
-  padding: 9px 15px;
-
-  color: white;
-
-  border: 1px solid #2c4878;
-  border-radius: 7px;
-
-  background: #101d38;
-}
-
-.backButton:hover {
-  background: #203a6e;
-}
-
-/* =========================================
-   SETTINGS
-========================================= */
-
-#settingsScreen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.settingsPanel {
-  width: min(500px, 90vw);
-
-  padding: 35px;
-
-  border: 1px solid #29436f;
-  border-radius: 18px;
-
-  background: rgba(5, 10, 25, 0.94);
-}
-
-.settingsPanel h1 {
   text-align: center;
-  letter-spacing: 5px;
 }
 
-.settingsPanel label {
-  display: flex;
-  flex-direction: column;
-
-  gap: 10px;
-
-  margin: 25px 0;
-
-  color: #b7c8e8;
-}
-
-.settingsPanel select,
-.settingsPanel input {
-  padding: 10px;
-
-  color: white;
-
-  border: 1px solid #314d7d;
-  border-radius: 6px;
-
-  background: #101d38;
-}
 
 /* =========================================
-   ANIMATIONS
-========================================= */
+   STARTUP CONTENT
+   ========================================= */
 
-@keyframes fadeIn {
+.startup-content {
+  width: min(700px, 90vw);
+
+  padding: 40px;
+}
+
+
+.startup-content h1 {
+  margin: 0 0 18px;
+
+  font-size:
+    clamp(40px, 7vw, 80px);
+
+  letter-spacing: 4px;
+
+  text-shadow:
+    0 0 15px #4fc3ff,
+    0 0 35px #315cff;
+}
+
+
+.startup-content p {
+  color: #b8c7e6;
+
+  font-size: 18px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================
+   GAME TITLE
+   ========================================= */
+
+.game-title {
+  font-size:
+    clamp(42px, 8vw, 90px) !important;
+
+  letter-spacing: 5px;
+
+  animation:
+    titlePulse 2.5s infinite alternate;
+}
+
+
+@keyframes titlePulse {
 
   from {
-    opacity: 0;
-    transform: scale(0.97);
+    text-shadow:
+      0 0 10px #4fc3ff;
   }
 
   to {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    transform: scale(1);
-    text-shadow: 0 0 20px #739dff;
-  }
-
-  50% {
-    transform: scale(1.15);
     text-shadow:
-      0 0 30px #b8d3ff,
-      0 0 70px #4c6fff;
+      0 0 20px #4fc3ff,
+      0 0 45px #315cff,
+      0 0 80px #5c2cff;
   }
 
 }
 
-@keyframes blink {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.25;
-  }
-
-}
-
-@keyframes blinkSoft {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.55;
-  }
-
-}
 
 /* =========================================
-   MOBILE / SMALL SCREEN
-========================================= */
+   LOADING BAR
+   ========================================= */
 
-@media (max-width: 850px) {
+.loading-bar {
+  width: min(500px, 80vw);
 
-  .gameScreen {
-    grid-template-columns: 180px 1fr;
-    grid-template-rows: 60px 1fr;
-  }
+  height: 14px;
 
-  .rightPanel {
-    display: none;
-  }
+  margin: 30px auto;
 
-  .topBar {
-    grid-column: 1 / 3;
-  }
+  overflow: hidden;
 
+  border: 1px solid #52618a;
+
+  border-radius: 20px;
+
+  background: #080c1a;
 }
 
-@media (max-width: 600px) {
 
-  .gameScreen {
+#loading-progress {
+  width: 0%;
+
+  height: 100%;
+
+  border-radius: 20px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #247cff,
+      #8c4dff
+    );
+
+  transition:
+    width 0.1s linear;
+}
+
+
+/* =========================================
+   PRESS START
+   ========================================= */
+
+#start-button {
+  margin-top: 30px;
+
+  padding: 16px 45px;
+
+  border: 1px solid #5dcaff;
+
+  border-radius: 8px;
+
+  background:
+    rgba(20, 80, 150, 0.25);
+
+  color: white;
+
+  font-size: 20px;
+
+  font-weight: bold;
+
+  letter-spacing: 3px;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 0 15px rgba(70, 190, 255, 0.35);
+
+  transition:
+    transform 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+
+#start-button:hover {
+  transform: scale(1.06);
+
+  background:
+    rgba(60, 140, 255, 0.35);
+
+  box-shadow:
+    0 0 30px rgba(70, 190, 255, 0.7);
+}
+
+
+.startup-small {
+  margin-top: 15px;
+
+  opacity: 0.6;
+
+  font-size: 13px !important;
+}
+
+
+/* =========================================
+   MAIN MENU
+   ========================================= */
+
+#main-menu {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 100;
+
+  display: none;
+
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(15, 30, 70, 0.45),
+      rgba(0, 0, 0, 0.75)
+    );
+
+  transition:
+    opacity 0.3s ease;
+}
+
+
+.menu-content {
+  width: min(850px, 92vw);
+
+  padding: 35px;
+}
+
+
+.menu-title {
+  margin: 0;
+
+  font-size:
+    clamp(38px, 7vw, 75px);
+
+  letter-spacing: 5px;
+
+  text-shadow:
+    0 0 20px #4fc3ff,
+    0 0 50px #315cff;
+}
+
+
+.menu-subtitle {
+  margin:
+    15px 0 35px;
+
+  color: #aebfe0;
+
+  font-size: 18px;
+}
+
+
+/* =========================================
+   MODE BUTTONS
+   ========================================= */
+
+.mode-buttons {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(220px, 1fr));
+
+  gap: 20px;
+}
+
+
+.mode-button {
+  min-height: 190px;
+
+  padding: 25px;
+
+  border: 1px solid #425b88;
+
+  border-radius: 15px;
+
+  background:
+    rgba(12, 22, 48, 0.85);
+
+  color: white;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+
+
+.mode-button:hover {
+  transform:
+    translateY(-6px);
+
+  border-color:
+    #56c8ff;
+
+  background:
+    rgba(25, 50, 95, 0.9);
+
+  box-shadow:
+    0 0 30px
+    rgba(70, 180, 255, 0.3);
+}
+
+
+.mode-icon {
+  display: block;
+
+  font-size: 55px;
+
+  margin-bottom: 12px;
+}
+
+
+.mode-name {
+  display: block;
+
+  font-size: 21px;
+
+  font-weight: bold;
+
+  letter-spacing: 2px;
+}
+
+
+.mode-description {
+  display: block;
+
+  margin-top: 10px;
+
+  color: #9eafd1;
+
+  font-size: 14px;
+
+  line-height: 1.4;
+}
+
+
+/* =========================================
+   SETTINGS BUTTON
+   ========================================= */
+
+.settings-button {
+  margin-top: 25px;
+
+  padding: 12px 28px;
+
+  border: 1px solid #52618a;
+
+  border-radius: 8px;
+
+  background:
+    rgba(15, 25, 50, 0.8);
+
+  color: white;
+
+  cursor: pointer;
+
+  font-size: 15px;
+}
+
+
+.settings-button:hover {
+  border-color: #7cceff;
+}
+
+
+/* =========================================
+   SANDBOX MENU
+   ========================================= */
+
+#sandbox-menu,
+#planet-weapon-menu {
+  position: fixed;
+
+  top: 20px;
+  left: 20px;
+
+  z-index: 50;
+
+  width: 245px;
+
+  max-height: calc(100vh - 40px);
+
+  overflow-y: auto;
+
+  padding: 18px;
+
+  border: 1px solid #344b78;
+
+  border-radius: 12px;
+
+  background:
+    rgba(4, 9, 22, 0.92);
+
+  backdrop-filter:
+    blur(10px);
+
+  box-shadow:
+    0 10px 40px
+    rgba(0, 0, 0, 0.5);
+}
+
+
+#sandbox-menu h2,
+#planet-weapon-menu h2 {
+  margin:
+    0 0 10px;
+
+  font-size: 19px;
+
+  letter-spacing: 1px;
+}
+
+
+#sandbox-menu h3 {
+  margin:
+    16px 0 7px;
+
+  color: #7ed7ff;
+
+  font-size: 12px;
+
+  letter-spacing: 2px;
+}
+
+
+.sandbox-description {
+  color: #9baed2;
+
+  font-size: 12px;
+
+  line-height: 1.4;
+}
+
+
+/* =========================================
+   OBJECT BUTTONS
+   ========================================= */
+
+#sandbox-menu button,
+#planet-weapon-menu button {
+  display: block;
+
+  width: 100%;
+
+  margin: 6px 0;
+
+  padding: 10px;
+
+  border: 1px solid #33476e;
+
+  border-radius: 7px;
+
+  background:
+    rgba(20, 35, 65, 0.8);
+
+  color: white;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+}
+
+
+#sandbox-menu button:hover,
+#planet-weapon-menu button:hover {
+  transform:
+    translateX(3px);
+
+  border-color:
+    #58c9ff;
+
+  background:
+    rgba(35, 70, 115, 0.9);
+}
+
+
+#sandbox-menu
+.selected-object {
+  border-color:
+    #58d7ff !important;
+
+  background:
+    rgba(30, 100, 150, 0.7) !important;
+
+  box-shadow:
+    0 0 12px
+    rgba(80, 210, 255, 0.3);
+}
+
+
+/* =========================================
+   SETTINGS PANEL
+   ========================================= */
+
+.settings-panel {
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+
+  transform:
+    translate(-50%, -50%);
+
+  width: min(420px, 90vw);
+
+  padding: 30px;
+
+  border: 1px solid #405785;
+
+  border-radius: 15px;
+
+  background:
+    rgba(5, 12, 28, 0.96);
+
+  box-shadow:
+    0 20px 60px
+    rgba(0, 0, 0, 0.7);
+}
+
+
+.settings-panel h2 {
+  margin-top: 0;
+}
+
+
+.settings-panel label {
+  display: block;
+
+  margin: 25px 0;
+
+  color: #b8c7e6;
+}
+
+
+.settings-panel input[type="range"] {
+  display: block;
+
+  width: 100%;
+
+  margin-top: 10px;
+}
+
+
+#close-settings {
+  text-align: center !important;
+
+  margin-top: 10px !important;
+}
+
+
+/* =========================================
+   MOBILE LAYOUT
+   ========================================= */
+
+@media (max-width: 650px) {
+
+  .mode-buttons {
     grid-template-columns: 1fr;
-    grid-template-rows: 55px auto 1fr;
   }
 
-  .topBar {
-    grid-column: 1;
+
+  .mode-button {
+    min-height: 150px;
   }
 
-  .leftPanel {
-    border-right: 0;
-    border-bottom: 1px solid #1d3156;
 
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+  #sandbox-menu,
+  #planet-weapon-menu {
+    width: 205px;
 
-    max-height: 180px;
-    overflow-y: auto;
-  }
+    top: 10px;
+    left: 10px;
 
-  .leftPanel h3 {
-    width: 100%;
-  }
-
-  .toolButton {
-    width: calc(50% - 5px);
-    margin: 0;
-  }
-
-  .gameTitle {
-    letter-spacing: 8px;
+    max-height:
+      calc(100vh - 20px);
   }
 
 }
