@@ -1,3 +1,6 @@
+import {
+  updatePhysics
+} from "../physics.js";
 // =========================================
 // UNIVERSE SMASH
 // SOLAR SYSTEM / SANDBOX MODE
